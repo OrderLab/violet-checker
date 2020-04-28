@@ -9,6 +9,9 @@ def read_config_file(filename):
         cnf_data = re.split(r'\[\w+\]\s*', cnf_data) # split data by utilities
         cnf_data = [re.findall(r'\S+\s*=\s*\S+|\S+', c) for c in cnf_data] # find all configs
         cnfs = cnf_data[1:]
+
+        
+
         return utils, cnfs
 
 def read_impact_table(filename):
@@ -20,3 +23,12 @@ def read_impact_table(filename):
             rows.append(row)
         return rows
 
+
+'''
+s = "ab"
+l = list(s)
+a = [ord(c) for c in l]
+valueAsInt = 0
+for i in range(len(a)):
+  valueAsInt |= a[i] << (i*8)
+'''
