@@ -1,10 +1,12 @@
 import re
+from table import *
 
 class Config:
     def __init__(self, util, cnfs):
         self.util = util.replace('[', '').replace(']', '')
         self.cnfs = []
         self.impact_table_hit = []
+        self.costs = {}
         for c in cnfs:
             if re.match(r'\S+\s*=\s*\S+', c):
                 t = ''.join(c.split()).split('=')
@@ -59,26 +61,46 @@ class Config:
     #              return True
     #     return False
 
-    def check_impact(self, impact_table):
+    # def check_impact(self, impact_table):
 
-        table_hit = False
-        for row in impact_table:
-            constraints = [r.split() for r in row[0].split('&&')]
-            row_hit = True 
-            for c in constraints:
-                cnf = self.find(c[0])
-                if not cnf:
-                    row_hit = False
-                    break
-                if c[1] == '==' and c[2] == cnf[1]:
-                    pass
-                elif c[1] == '!=' and c[2] != cnf[1]:
-                    pass
-                else:
-                    row_hit = False
-                    break
-            if row_hit:
-                self.impact_table_hit.append(row)
-                table_hit = True
+    #     table_hit = False
+    #     for row in impact_table:
+    #         constraints = [r.split() for r in row[0].split('&&')]
+    #         row_hit = True 
+    #         for c in constraints:
+    #             cnf = self.find(c[0])
+    #             if not cnf:
+    #                 row_hit = False
+    #                 break
+    #             if c[1] == '==' and c[2] == cnf[1]:
+    #                 pass
+    #             elif c[1] == '!=' and c[2] != cnf[1]:
+    #                 pass
+    #             else:
+    #                 row_hit = False
+    #                 break
+    #         if row_hit:
+    #             self.impact_table_hit.append(row)
+    #             table_hit = True
                     
-        return table_hit
+    #     return table_hit
+
+    def check_impact(self, impact_table):
+        hit = True
+        for _id in impact_table.dict:
+            self.state_id = _id
+            for c in self.cnfs:
+                name = c[0]
+                # TODO when there is no value
+                value = c[1]
+                hit = True
+                if name in impact_table.dict[_id]['constraints']:
+                    if value != impact_table.dict[_id]['constraints'][name]:
+                        hit = False
+                else:
+                    hit = False
+            if hit:
+                self.costs = impact_table.dict[_id]['costs']
+                break
+
+        return hit
