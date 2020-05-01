@@ -17,27 +17,52 @@ class ImpactTable:
                 self.constraints_handler(state_id, constraints)
                 self.costs_handler(state_id, costs)
 
-
-    def constraints_handler(self, id, constraints):
+    def constraints_handler(self, state_id, constraints):
         for c in [c.split('==') for c in constraints]:
-            self.dict[id]['constraints'][c[0]] = int(c[1])
+            self.dict[state_id]['constraints'][c[0]] = int(c[1])
     
-    def costs_handler(self, id, costs):
+    def costs_handler(self, state_id, costs):
         for c in [c.split('=>') for c in costs]:
             if c[0] == "IO":
                 result = [int(n) for n in c[1].split(' ')]
-                self.dict[id]['costs']['IO'] = {
+                self.dict[state_id]['costs']['IO'] = {
                     'read' : [result[0], result[1]],
                     'write' : [result[2], result[3]],
                     'pread' : [result[4], result[6]],
                     'pwrite' : [result[6], result[7]],
                 }
             elif c[0] == "ET":
-                self.dict[id]['costs']['ET'] = float(c[1].split('ms')[0])
+                self.dict[state_id]['costs']['ET'] = float(c[1].split('ms')[0])
             elif c[0] == "IC":
-                self.dict[id]['costs']['IC'] = int(c[1])
+                self.dict[state_id]['costs']['IC'] = int(c[1])
             elif c[0] == "SC":
-                self.dict[id]['costs']['SC'] = int(c[1])
+                self.dict[state_id]['costs']['SC'] = int(c[1])
+
+    def find_all_pairs(self, n):
+        for id_i in self.dict:
+            self.dict[id_i]['pairs'] = []
+            for id_j in self.dict:
+                _n = n
+                ok = True
+                if id_i == id_j:
+                    continue
+                else:
+                    for c in self.dict[id_i]['constraints']:
+                        if c in self.dict[id_j]['constraints']:
+                            if self.dict[id_i]['constraints'][c] != self.dict[id_j]['constraints'][c]:
+                                _n -= 1
+                        else:
+                            ok = False
+                        if _n < 0:
+                            ok = False
+                    if ok:
+                        self.dict[id_i]['pairs'].append(id_j)
+
+    # def 
+
+
+
+
 
             
             '''
