@@ -1,8 +1,30 @@
 import re
 import csv
 
+class ImpactTableRow:
+    def __init__(self, state_id, constraints, costs, pairs):
+        self.state_id = state_id
+        self.constraints = constraints
+        self.costs = costs
+        self.pairs = pairs
+        #TODO add workload?
+    
+    def write_to_file(self, file):
+        file.write('########## STATE %s RECORD ##########\n' % (self.state_id))
+        # file.write('state %s from the cost impact table\n' % (self.state_id))
+        file.write('constraints are =>\n')
+        for c in self.constraints:
+            file.write(' '*5 + '%s = %s\n' % (c, self.constraints[c]))
+        file.write('the total execution time is %sms\n' % (self.costs['ET']))
+        file.write('total %s instructions and %s syscalls were occured\n' % (self.costs['IC'], self.costs['SC']))
+        file.write('\n')
+        
+
+
 class ImpactTable:
     def __init__(self, filename):
+        self.constraints_process_table = self.get_constraints_process_table()
+
         with open(filename, 'r', encoding='utf-8-sig') as csv_file:
             csv_reader = csv.reader(csv_file)
             self.fields = next(csv_reader)
@@ -19,7 +41,18 @@ class ImpactTable:
 
     def constraints_handler(self, state_id, constraints):
         for c in [c.split('==') for c in constraints]:
-            self.dict[state_id]['constraints'][c[0]] = int(c[1])
+            if c[1].isdigit():
+                    c[1] = int(c[1])
+            if c[0] in self.constraints_process_table:
+                if c[1] == self.constraints_process_table[c[0]][0]:
+                    c[1] = self.constraints_process_table[c[0]][1]
+            if c[0] == 'index':
+                if 'workload' in self.dict[state_id]:
+                    self.dict[state_id]['workload'].append(c[1])
+                else:
+                    self.dict[state_id]['workload'] = [c[1],]
+                return
+            self.dict[state_id]['constraints'][c[0]] = c[1]
     
     def costs_handler(self, state_id, costs):
         for c in [c.split('=>') for c in costs]:
@@ -38,6 +71,24 @@ class ImpactTable:
             elif c[0] == "SC":
                 self.dict[state_id]['costs']['SC'] = int(c[1])
 
+    def workload_handler(self, state_id):
+        if 'workload' not in self.dict[state_id]:
+            return
+        if self.dict[state_id]['workload'] == [0,1]:
+            self.dict[state_id]['workload'] = 'range, options ...'
+        elif self.dict[state_id]['workload'] == [0]:
+            self.dict[state_id]['workload'] = 'write, '
+        elif self.dict[state_id]['workload'] == [0,0]:
+            pass
+        elif self.dict[state_id]['workload'] == [1]:
+            pass
+        elif self.dict[state_id]['workload'] == [2,0]:
+            pass
+        elif self.dict[state_id]['workload'] == [2,1]:
+            pass
+        elif self.dict[state_id]['workload'] == [2]:
+            pass
+        
     def find_all_pairs(self, n):
         for id_i in self.dict:
             self.dict[id_i]['pairs'] = []
@@ -58,16 +109,18 @@ class ImpactTable:
                     if ok:
                         self.dict[id_i]['pairs'].append(id_j)
 
-    # def 
+    def get_row(self, state_id):
+        constraints = self.dict[state_id]['constraints']
+        costs = self.dict[state_id]['costs']
+        pairs = self.dict[state_id]['pairs']
+        return ImpactTableRow(state_id, constraints, costs, pairs)
+    
 
-
-
-
+    def get_constraints_process_table(self):
+        return {
+            'autocommit' : [255, 1],
+            'binlog_format' : [72340172838076676, 4],
+            'sql_log_bin' : [255, 1],
+        }
 
             
-            '''
-             // TODO check if there is a IO tracer.dat
-  impact_table_file_ << "IO=>" << record->io_trace.read_bytes << " " << record->io_trace.read_cnt << " "
-    << record->io_trace.write_bytes << " " << record->io_trace.write_cnt << " " << record->io_trace.pread_bytes << " "
-    << record->io_trace.pread_cnt << " " << record->io_trace.pwrite_bytes << " " << record->io_trace.pwrite_cnt;
-            '''

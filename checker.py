@@ -10,6 +10,9 @@ def checker(input_file, output_file, table_file):
     utils, cnfs = read_config_file(input_file)
     impact_table.find_all_pairs(1)
 
+
+    result_file = open(output_file, 'w')
+
     # for d in impact_table.dict:
     #     print (impact_table.dict[d]['constraints'])
     #     print (impact_table.dict[d]['pairs'])
@@ -18,20 +21,21 @@ def checker(input_file, output_file, table_file):
 
     for (u, c) in zip(utils, cnfs):
         config = Config(u, c)
-        # for c in config.cnfs:
-            # print (c)
-        if config.check_impact(impact_table):
-            print ('----------- Impact Table HIT ----------')
-            print ('ID in impact table: ' + str(config._id))
-            # print (config.costs)
-            _l.append(config)
-            for pair_id in impact_table.dict[config._id]['pairs']:
-                print ('Could compare to STATE ' + str(pair_id))
+        if config.util != 'mysqld':
+            continue
 
+        for c in config.configs:
+            print (c + " = " + str(config.configs[c]))
+        print ('#'*39)
+        if config.check_impact(impact_table):
+            print ('Cost impact table HIT %s: %s' % (config.impact_table_id, config.util))
+            config.write_result(result_file)
 
         print ('-'*39)
 
-    print_result_file(output_file, _l)
+
+    print ('The result is written to ' + output_file)
+    result_file.close()
 
 
 
