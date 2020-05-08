@@ -3,17 +3,18 @@ import csv
 from util import *
 
 class ImpactTableRow:
-    def __init__(self, state_id, constraints, costs, pairs):
+    def __init__(self, state_id, constraints, costs, pairs, workloads):
         self.state_id = state_id
         self.constraints = constraints
         self.costs = costs
         self.pairs = pairs
         #TODO add workload?
+        self.workloads = workloads
     
     def write_to_file(self, file):
         file.write('########## STATE %s RECORD ##########\n' % (self.state_id))
         # file.write('state %s from the cost impact table\n' % (self.state_id))
-        file.write('constraints are =>\n')
+        file.write('constraints =>\n')
         for c in self.constraints:
             file.write(' '*5 + '%s = %s\n' % (c, self.constraints[c]))
         file.write('the total execution time was %sms\n' % (self.costs['ET']))
@@ -52,10 +53,10 @@ class ImpactTable:
                 if c[1] == self.constraints_process_table[c[0]][0]:
                     c[1] = self.constraints_process_table[c[0]][1]
             if c[0] == 'index':
-                if 'workload' in self.dict[state_id]:
-                    self.dict[state_id]['workload'].append(c[1])
+                if 'workloads' in self.dict[state_id]:
+                    self.dict[state_id]['workloads'].append(c[1])
                 else:
-                    self.dict[state_id]['workload'] = [c[1],]
+                    self.dict[state_id]['workloads'] = [c[1],]
                 return
             self.dict[state_id]['constraints'][c[0]] = c[1]
     
@@ -77,12 +78,12 @@ class ImpactTable:
                 self.dict[state_id]['costs']['SC'] = int(c[1])
 
     def workload_handler(self, state_id):
-        if 'workload' not in self.dict[state_id]:
-            self.dict[state_id]['workload'] = None
+        if 'workloads' not in self.dict[state_id]:
+            self.dict[state_id]['workloads'] = None
             return
 
         workload = None
-        index = self.dict[state_id]['workload']
+        index = self.dict[state_id]['workloads']
         if len(index) == 1:
             workload = self.workload_json[index[0]]
         elif len(index) == 2:
@@ -97,7 +98,7 @@ class ImpactTable:
             #flattern the workload list
             workload = flatten_list(workload)
         
-        self.dict[state_id]['workload'] = workload
+        self.dict[state_id]['workloads'] = workload
         
         
     def find_all_pairs(self, n):
@@ -120,11 +121,46 @@ class ImpactTable:
                     if ok:
                         self.dict[id_i]['pairs'].append(id_j)
 
+    def write_worst_workload(self, file, n):
+
+        assert n >= 0, "n must be larger than zero"
+        if n == 0:
+            return
+
+        rows = [self.get_row(_id) for _id in self.dict]
+        rows.sort(key=lambda x: x.costs['ET'], reverse=True)
+        
+        file.write('--------- TOP %s WORST WORKLOAD(s) FROM THE IMPACT TABLE ---------\n' % (n))
+
+        for r in rows:
+            file.write('########## WORKLOAD RECORD ##########\n')
+            file.write('State %s workloads =>\n' % (r.state_id))
+            if not r.workloads:
+                file.write('          None\n')
+            else:
+                for w in r.workloads:
+                    file.write('          %s\n' % (w))
+            file.write('constraints =>\n')
+            for c in r.constraints:
+                file.write(' '*5 + '%s = %s\n' % (c, r.constraints[c]))
+            file.write('the total execution time was %sms\n' % (r.costs['ET']))
+            file.write('total %s instructions and %s syscalls were occured\n' % (r.costs['IC'], r.costs['SC']))
+            file.write('\n')
+
+            n -= 1
+            if not n:
+                break
+        
+        file.write('\n')
+
+
+
     def get_row(self, state_id):
         constraints = self.dict[state_id]['constraints']
         costs = self.dict[state_id]['costs']
         pairs = self.dict[state_id]['pairs']
-        return ImpactTableRow(state_id, constraints, costs, pairs)
+        workloads = self.dict[state_id]['workloads']
+        return ImpactTableRow(state_id, constraints, costs, pairs, workloads)
     
     def __get_workload_json(self):
         ___point = 'SELECT * FROM tbl WHERE id = 1'

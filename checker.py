@@ -4,14 +4,14 @@ import argparse
 from util import *
 from config import *
 
-def checker(input_file, output_file, table_file):
+def checker(input_file, output_file, table_file, n):
+
+    result_file = open(output_file, 'w')
 
     impact_table = ImpactTable(table_file)
     utils, cnfs = read_config_file(input_file)
     impact_table.find_all_pairs(1)
-
-
-    result_file = open(output_file, 'w')
+    impact_table.write_worst_workload(result_file, n)
 
     # for d in impact_table.dict:
     #     print (impact_table.dict[d]['constraints'])
@@ -24,11 +24,11 @@ def checker(input_file, output_file, table_file):
         if config.util != 'mysqld':
             continue
 
-        for c in config.configs:
-            print (c + " = " + str(config.configs[c]))
-        print ('#'*39)
+        # for c in config.configs:
+        #     print (c + " = " + str(config.configs[c]))
+        print ('-'*39)
         if config.check_impact(impact_table):
-            print ('Cost impact table HIT %s: %s' % (config.impact_table_id, config.util))
+            print ('HIT cost impact table state %s: %s' % (config.impact_table_id, config.util))
             config.write_result(result_file)
 
         print ('-'*39)
@@ -45,6 +45,8 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--input')
     parser.add_argument('-o', '--output', default='result.txt')
     parser.add_argument('-t', '--table', default='impact_table.csv')
+    parser.add_argument('-w', '--workload_number', default=0)
+
 
     args = parser.parse_args()
 
@@ -52,4 +54,4 @@ if __name__ == "__main__":
         parser.print_help()
         exit()
     
-    checker(args.input, args.output, args.table)
+    checker(args.input, args.output, args.table, int(args.workload_number))

@@ -106,12 +106,13 @@ class Config:
     
     def write_result(self, result_file):
 
+        result_file.write('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n')
         result_file.write('The configuration of ' + self.util + '...\n')
         result_file.write('hits STATE ' + str(self.impact_table_id) + ' from the impact table\n')
 
 
         result_file.write('\n')
-        result_file.write('-'*20 + 'COSTS' + '-'*20 + '\n')
+        result_file.write('---------------------------- COSTS ------------------------------\n')
         if 'IO' in self.costs:
             _c = self.costs['IO']
             result_file.write(
@@ -138,11 +139,16 @@ class Config:
             )
         
         result_file.write('\n')
-        result_file.write('-'*20 + 'RECOMMENDATIONS' + '-'*20 + '\n')
+        result_file.write('\n')
+
+        result_file.write('-------------------------- SUGGESTS -----------------------------\n')
         for p in self.pairs:
             if p.costs['ET'] < self.costs['ET']:
                 p.write_to_file(result_file)
             # result_file.write(str(p.costs['ET']) + '\n')
+        
+        # result_file.write('\n')
+        # result_file.write('\n')
 
 
 
