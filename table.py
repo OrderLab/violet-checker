@@ -1,5 +1,6 @@
 import re
 import csv
+from util import *
 
 class ImpactTableRow:
     def __init__(self, state_id, constraints, costs, pairs):
@@ -15,15 +16,14 @@ class ImpactTableRow:
         file.write('constraints are =>\n')
         for c in self.constraints:
             file.write(' '*5 + '%s = %s\n' % (c, self.constraints[c]))
-        file.write('the total execution time is %sms\n' % (self.costs['ET']))
+        file.write('the total execution time was %sms\n' % (self.costs['ET']))
         file.write('total %s instructions and %s syscalls were occured\n' % (self.costs['IC'], self.costs['SC']))
         file.write('\n')
         
-
-
 class ImpactTable:
     def __init__(self, filename):
-        self.constraints_process_table = self.get_constraints_process_table()
+        self.constraints_process_table = self.__get_constraints_process_table()
+        self.workload_json = self.__get_workload_json()
 
         with open(filename, 'r', encoding='utf-8-sig') as csv_file:
             csv_reader = csv.reader(csv_file)
@@ -37,7 +37,12 @@ class ImpactTable:
                 constraints = row[1].split('&&')
                 costs = row[2].split(';')
                 self.constraints_handler(state_id, constraints)
+                # if 'workload' in self.dict[state_id]:
+                #     print (self.dict[state_id]['workload'])
                 self.costs_handler(state_id, costs)
+                self.workload_handler(state_id)
+                # print (self.dict[state_id]['workload'])
+                # print ('-'*20)
 
     def constraints_handler(self, state_id, constraints):
         for c in [c.split('==') for c in constraints]:
@@ -73,21 +78,27 @@ class ImpactTable:
 
     def workload_handler(self, state_id):
         if 'workload' not in self.dict[state_id]:
+            self.dict[state_id]['workload'] = None
             return
-        if self.dict[state_id]['workload'] == [0,1]:
-            self.dict[state_id]['workload'] = 'range, options ...'
-        elif self.dict[state_id]['workload'] == [0]:
-            self.dict[state_id]['workload'] = 'write, '
-        elif self.dict[state_id]['workload'] == [0,0]:
-            pass
-        elif self.dict[state_id]['workload'] == [1]:
-            pass
-        elif self.dict[state_id]['workload'] == [2,0]:
-            pass
-        elif self.dict[state_id]['workload'] == [2,1]:
-            pass
-        elif self.dict[state_id]['workload'] == [2]:
-            pass
+
+        workload = None
+        index = self.dict[state_id]['workload']
+        if len(index) == 1:
+            workload = self.workload_json[index[0]]
+        elif len(index) == 2:
+            workload = self.workload_json[index[0]][index[1]]
+        if not workload:
+            return
+        
+        if not isinstance(workload, list):
+            assert isinstance(workload, str), "the instance should be a string"
+            workload = [workload]
+        else:
+            #flattern the workload list
+            workload = flatten_list(workload)
+        
+        self.dict[state_id]['workload'] = workload
+        
         
     def find_all_pairs(self, n):
         for id_i in self.dict:
@@ -115,8 +126,31 @@ class ImpactTable:
         pairs = self.dict[state_id]['pairs']
         return ImpactTableRow(state_id, constraints, costs, pairs)
     
+    def __get_workload_json(self):
+        ___point = 'SELECT * FROM tbl WHERE id = 1'
+        ___simple = 'SELECT * FROM tbl WHERE id BETWEEN 5 AND 10'
+        ___orderby = 'SELECT * FROM tbl WHERE id BETWEEN 5 AND 10 ORDER BY col'
+        ___sum = 'SELECT SUM(col) FROM tbl WHERE id BETWEEN 5 AND 10 ORDER BY col'
+        ___distinct = 'SELECT DISTINCT * FROM tbl WHERE id BETWEEN 5 AND 10 ORDER BY col'
+        ___insert = 'INSERT INTO tbl(col) VALUES(10)'
+        ___no_index = 'UPDATE tbl SET col=10 WHERE id=4'
+        ___index = 'UPDATE tbl SET col=col+1 WHERE id=4'
+        ___delete = 'DELETE FROM tbl WHERE id = 1'
+        __range = [___simple, ___orderby, ___sum, ___distinct]
+        __select = [___point, __range]
+        __update = [___no_index, ___index]
+        _json = [__select, ___insert, __update, ___delete]
 
-    def get_constraints_process_table(self):
+        _read = [_json[0][1], _json[0], _json[0], _json[0][0]]
+        _insert = _json[1]
+        _update = [_json[2][0], _json[2][1]]
+        _write = _json[2]
+
+        return [
+            _read, _insert, _update, _write
+        ]
+
+    def __get_constraints_process_table(self):
         return {
             'autocommit' : [255, 1],
             'binlog_format' : [72340172838076676, 4],

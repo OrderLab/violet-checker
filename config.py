@@ -28,7 +28,7 @@ class Config:
         self.impact_table_hit = []
         self.impact_table_id = -1
         self.costs = {}
-        self.configs = self.get_default_configs()
+        self.configs = self.__get_default_configs()
         
         # self.constraints = {}
         for c in cnfs:
@@ -147,7 +147,7 @@ class Config:
 
 
 
-    def get_default_configs(self):
+    def __get_default_configs(self):
         return {
             'autocommit' : 1,
             'sync_binlog' : 1,

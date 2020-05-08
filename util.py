@@ -10,6 +10,20 @@ def read_config_file(filename):
         cnfs = cnf_data[1:]
         return utils, cnfs
 
+def flatten_list(l):
+    r = []
+    for e in l:
+        if isinstance(e, str):
+            r.append(e)
+        elif isinstance(e, list):
+            t = flatten_list(e)
+            for i in t:
+                if i not in r:
+                    r.append(i)
+    return r
+
+
+
 # def print_result_file(filename, _list):
 #     with open(filename, 'w') as result_file:
 #         for config in _list:
