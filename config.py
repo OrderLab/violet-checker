@@ -54,55 +54,106 @@ class Config:
                 self.constraints = impact_table_row.constraints
                 self.pairs = [impact_table.get_row(p) for p in impact_table_row.pairs]
                 self.pairs.sort(key=lambda x: x.costs['ET'], reverse=False)
+                self.pairs = [p for p in self.pairs if p.costs['ET'] < self.costs['ET']]
                 self.impact_table_id = _id
                 break
         return hit
-    
+
     def write_result(self, result_file):
 
-        result_file.write('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n')
-        result_file.write('The configuration of ' + self.util + '...\n')
-        result_file.write('hits STATE ' + str(self.impact_table_id) + ' from the impact table\n')
+        result_file.write('[+] VIOLET has detected some potential bad configurations in your configuration file:\n\n')
 
-
-        result_file.write('\n')
-        result_file.write('---------------------------- COSTS ------------------------------\n')
-        if 'IO' in self.costs:
-            _c = self.costs['IO']
-            result_file.write(
-                'read ' + str(_c['read'][0]) + ' bytes from ' + str(_c['read'][1]) + ' read calls\n' +
-                'pread ' + str(_c['pread'][0]) + ' bytes from ' + str(_c['pread'][1]) + ' pread calls\n' +
-                'write ' + str(_c['write'][0]) + ' bytes from ' + str(_c['write'][1]) + ' write calls\n' +
-                'pwrite ' + str(_c['pwrite'][0]) + ' bytes from ' + str(_c['pwrite'][1]) + ' pwrite calls\n'
-            )
-        if 'ET' in self.costs:
-            result_file.write(
-                'Execution Time is ' + str(self.costs['ET']) + 'ms\n'
-            )
-        if 'IC' in self.costs:
-            result_file.write(
-                str(self.costs['IC']) + ' instructions'
-            )
-        if 'SC' in self.costs:
-            result_file.write(
-                ' and ' + str(self.costs['SC']) + ' system calls occured\n'
-            )
-        else:
-            result_file.write(
-                ' occured\n'
-            )
-        
-        result_file.write('\n')
-        result_file.write('\n')
-
-        result_file.write('-------------------------- SUGGESTS -----------------------------\n')
         for p in self.pairs:
-            if p.costs['ET'] < self.costs['ET']:
-                p.write_to_file(result_file)
-            # result_file.write(str(p.costs['ET']) + '\n')
+            diff_c = []
+            for p_c in p.constraints:
+                if p.constraints[p_c] != self.configs[p_c]:
+                    diff_c.append(p_c)
+            if not diff_c:
+                continue # shouldn't be empty
+            for c in diff_c:
+                result_file.write('[%s]' % (c))
+            result_file.write('\nYour current setting is:\n')
+            for c in diff_c:
+                result_file.write('    %s = %s\n' % (c, self.configs[c]))
+            result_file.write('A better setting could be:\n')
+            for c in diff_c:
+                result_file.write('    %s = %s\n' % (c, p.constraints[c]))
+            result_file.write('Potential performance impacts are:\n')
+            result_file.write('    When the workload is\n')
+            p.write_workloads(result_file, 8)
+            r = self.costs['ET'] / p.costs['ET'] * 100
+            result_file.write('    The new setting is %s faster than your current setting\n'
+                % (['%.2f%%'%(r), 'almost infinitely'][r == float('inf')])
+            )
+            p_total_readbytes = p.costs['IO']['read'][0] + p.costs['IO']['pread'][0]
+            total_readbytes = self.costs['IO']['read'][0] + self.costs['IO']['pread'][0]
+            if p_total_readbytes < total_readbytes:
+                result_file.write('    The total bytes read (read+pread) is reduced by %.2f%%\n'
+                    % ((total_readbytes - p_total_readbytes) / total_readbytes * 100)
+                )
+            p_total_readcalls = p.costs['IO']['read'][1] + p.costs['IO']['pread'][1]
+            total_readcalls = self.costs['IO']['read'][1] + self.costs['IO']['pread'][1]
+            if p_total_readcalls < total_readcalls:
+                result_file.write('    The total read calls (read+pread) is reduced by %.2f%%\n'
+                    % ((total_readcalls - p_total_readcalls) / total_readcalls * 100)
+                )
+            p_total_writebytes = p.costs['IO']['write'][0] + p.costs['IO']['pwrite'][0]
+            total_writebytes = self.costs['IO']['write'][0] + self.costs['IO']['pwrite'][0]
+            if p_total_writebytes < total_writebytes:
+                result_file.write('    The total bytes written (write+pwrite) is reduced by %.2f%%\n'
+                    % ((total_writebytes - p_total_writebytes) / total_writebytes * 100)
+                )
+            p_total_writecalls = p.costs['IO']['write'][1] + p.costs['IO']['pwrite'][1]
+            total_writecalls = self.costs['IO']['write'][1] + self.costs['IO']['pwrite'][1]
+            if p_total_writecalls < total_writecalls:
+                result_file.write('    The total write calls (write+pwrite) is reduced by %.2f%%\n'
+                    % ((total_writecalls - p_total_writecalls) / total_writecalls * 100)
+                )
+            result_file.write('\n')
+
+
+    
+    # def write_result(self, result_file):
+
+    #     result_file.write('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n')
+    #     result_file.write('The configuration of ' + self.util + '...\n')
+    #     result_file.write('hits STATE ' + str(self.impact_table_id) + ' from the impact table\n')
+
+
+    #     result_file.write('\n')
+    #     result_file.write('---------------------------- COSTS ------------------------------\n')
+    #     if 'IO' in self.costs:
+    #         _c = self.costs['IO']
+    #         result_file.write(
+    #             'read ' + str(_c['read'][0]) + ' bytes from ' + str(_c['read'][1]) + ' read calls\n' +
+    #             'pread ' + str(_c['pread'][0]) + ' bytes from ' + str(_c['pread'][1]) + ' pread calls\n' +
+    #             'write ' + str(_c['write'][0]) + ' bytes from ' + str(_c['write'][1]) + ' write calls\n' +
+    #             'pwrite ' + str(_c['pwrite'][0]) + ' bytes from ' + str(_c['pwrite'][1]) + ' pwrite calls\n'
+    #         )
+    #     if 'ET' in self.costs:
+    #         result_file.write(
+    #             'Execution Time is ' + str(self.costs['ET']) + 'ms\n'
+    #         )
+    #     if 'IC' in self.costs:
+    #         result_file.write(
+    #             str(self.costs['IC']) + ' instructions'
+    #         )
+    #     if 'SC' in self.costs:
+    #         result_file.write(
+    #             ' and ' + str(self.costs['SC']) + ' system calls occured\n'
+    #         )
+    #     else:
+    #         result_file.write(
+    #             ' occured\n'
+    #         )
         
-        # result_file.write('\n')
-        # result_file.write('\n')
+    #     result_file.write('\n')
+    #     result_file.write('\n')
+
+    #     result_file.write('-------------------------- SUGGESTS -----------------------------\n')
+    #     for p in self.pairs:
+    #         if p.costs['ET'] < self.costs['ET']:
+    #             p.write_to_file(result_file)
 
 
 

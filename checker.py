@@ -11,12 +11,9 @@ def checker(input_file, output_file, table_file, n):
     impact_table = ImpactTable(table_file)
     utils, cnfs = read_config_file(input_file)
     impact_table.find_all_pairs(1)
-    impact_table.write_worst_workload(result_file, n)
-    impact_table.write_workload_suggestion(result_file)
 
-    # for d in impact_table.dict:
-    #     print (impact_table.dict[d]['constraints'])
-    #     print (impact_table.dict[d]['pairs'])
+    # impact_table.write_worst_workload(result_file, n)
+    # impact_table.write_workload_suggestion(result_file)
 
     _l = []
 
@@ -31,8 +28,16 @@ def checker(input_file, output_file, table_file, n):
         if config.check_impact(impact_table):
             print ('HIT cost impact table state %s: %s' % (config.impact_table_id, config.util))
             config.write_result(result_file)
+            result_file.write('\n\n')
+            impact_table.make_workload_suggestion(result_file, config) # assume it will only be printed once
 
         print ('-'*39)
+
+
+    #TODO workload suggestions,,,,,,, here
+
+    result_file.write('\n\n')
+    impact_table.find_worst_workload(result_file, n)
 
 
     print ('The result is written to ' + output_file)
