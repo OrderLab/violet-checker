@@ -12,6 +12,7 @@ def checker(input_file, output_file, table_file, n):
     utils, cnfs = read_config_file(input_file)
     impact_table.find_all_pairs(1)
     impact_table.write_worst_workload(result_file, n)
+    impact_table.write_workload_suggestion(result_file)
 
     # for d in impact_table.dict:
     #     print (impact_table.dict[d]['constraints'])

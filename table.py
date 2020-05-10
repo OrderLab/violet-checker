@@ -31,6 +31,7 @@ class ImpactTable:
             self.fields = next(csv_reader)
             self.rows = []
             self.dict = {}
+            self.workload_type = {}
             for row in csv_reader:
                 self.rows.append(row)
                 state_id = int(row[0])
@@ -38,12 +39,14 @@ class ImpactTable:
                 constraints = row[1].split('&&')
                 costs = row[2].split(';')
                 self.constraints_handler(state_id, constraints)
-                # if 'workload' in self.dict[state_id]:
-                #     print (self.dict[state_id]['workload'])
+                if 'workloads' in self.dict[state_id]:
+                    print (self.dict[state_id]['workloads'])
                 self.costs_handler(state_id, costs)
-                self.workload_handler(state_id)
-                # print (self.dict[state_id]['workload'])
-                # print ('-'*20)
+                self.workloads_handler(state_id)
+                # print (self.dict[state_id]['workloads'])
+                for i in self.dict[state_id]['workloads']:
+                    print (i)
+                print ('-'*20)
 
     def constraints_handler(self, state_id, constraints):
         for c in [c.split('==') for c in constraints]:
@@ -57,7 +60,7 @@ class ImpactTable:
                     self.dict[state_id]['workloads'].append(c[1])
                 else:
                     self.dict[state_id]['workloads'] = [c[1],]
-                return
+                continue
             self.dict[state_id]['constraints'][c[0]] = c[1]
     
     def costs_handler(self, state_id, costs):
@@ -77,14 +80,15 @@ class ImpactTable:
             elif c[0] == "SC":
                 self.dict[state_id]['costs']['SC'] = int(c[1])
 
-    def workload_handler(self, state_id):
+    def workloads_handler(self, state_id):
         if 'workloads' not in self.dict[state_id]:
-            self.dict[state_id]['workloads'] = None
+            self.dict[state_id]['workloads'] = []
             return
 
         workload = None
         index = self.dict[state_id]['workloads']
         if len(index) == 1:
+            # TODO handle workload by -> self.workloadindex['workload_<index>'].append[state_id]
             workload = self.workload_json[index[0]]
         elif len(index) == 2:
             workload = self.workload_json[index[0]][index[1]]
@@ -96,9 +100,17 @@ class ImpactTable:
             workload = [workload]
         else:
             #flattern the workload list
-            workload = flatten_list(workload)
+            # workload = flatten_list(workload)
+            workload = workload
         
         self.dict[state_id]['workloads'] = workload
+
+        workload_index = ''.join([str(i) for i in index])
+        if workload_index in self.workload_type:
+            self.workload_type[workload_index].append(state_id)
+        else:
+            self.workload_type[workload_index] = [state_id,]
+
         
         
     def find_all_pairs(self, n):
@@ -153,6 +165,30 @@ class ImpactTable:
         
         file.write('\n')
 
+    def write_workload_suggestion(self, file):
+
+        file.write('------------------------ WORKLOAD SUGGESTIONS --------------------\n')
+
+        for index in self.workload_type:
+            rows = [self.get_row(_id) for _id in self.workload_type[index]]
+            rows.sort(key=lambda x: x.costs['ET'], reverse=False)
+            for r in rows:
+                file.write('########## WORKLOAD RECORD ##########\n')
+                file.write('State %s workloads =>\n' % (r.state_id))
+                if not r.workloads:
+                    file.write('          None\n')
+                else:
+                    for w in r.workloads:
+                        file.write('          %s\n' % (w))
+                file.write('constraints =>\n')
+                for c in r.constraints:
+                    file.write(' '*5 + '%s = %s\n' % (c, r.constraints[c]))
+                file.write('the total execution time was %sms\n' % (r.costs['ET']))
+                file.write('total %s instructions and %s syscalls were occured\n' % (r.costs['IC'], r.costs['SC']))
+                file.write('\n')
+                break
+
+        file.write('\n')
 
 
     def get_row(self, state_id):
@@ -185,6 +221,10 @@ class ImpactTable:
         return [
             _read, _insert, _update, _write
         ]
+
+        # return [
+        #     flatten_list(_read), flatten_list(_insert)
+        # ]
 
     def __get_constraints_process_table(self):
         return {
