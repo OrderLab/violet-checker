@@ -9,7 +9,6 @@ class Config:
         self.costs = {}
         self.configs = self.__get_default_configs()
         
-        # self.constraints = {}
         for c in cnfs:
             if re.match(r'\S+\s*=\s*\S+', c):
                 t = ''.join(c.split()).split('=')
@@ -110,52 +109,6 @@ class Config:
                     % ((total_writecalls - p_total_writecalls) / total_writecalls * 100)
                 )
             result_file.write('\n')
-
-
-    
-    # def write_result(self, result_file):
-
-    #     result_file.write('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n')
-    #     result_file.write('The configuration of ' + self.util + '...\n')
-    #     result_file.write('hits STATE ' + str(self.impact_table_id) + ' from the impact table\n')
-
-
-    #     result_file.write('\n')
-    #     result_file.write('---------------------------- COSTS ------------------------------\n')
-    #     if 'IO' in self.costs:
-    #         _c = self.costs['IO']
-    #         result_file.write(
-    #             'read ' + str(_c['read'][0]) + ' bytes from ' + str(_c['read'][1]) + ' read calls\n' +
-    #             'pread ' + str(_c['pread'][0]) + ' bytes from ' + str(_c['pread'][1]) + ' pread calls\n' +
-    #             'write ' + str(_c['write'][0]) + ' bytes from ' + str(_c['write'][1]) + ' write calls\n' +
-    #             'pwrite ' + str(_c['pwrite'][0]) + ' bytes from ' + str(_c['pwrite'][1]) + ' pwrite calls\n'
-    #         )
-    #     if 'ET' in self.costs:
-    #         result_file.write(
-    #             'Execution Time is ' + str(self.costs['ET']) + 'ms\n'
-    #         )
-    #     if 'IC' in self.costs:
-    #         result_file.write(
-    #             str(self.costs['IC']) + ' instructions'
-    #         )
-    #     if 'SC' in self.costs:
-    #         result_file.write(
-    #             ' and ' + str(self.costs['SC']) + ' system calls occured\n'
-    #         )
-    #     else:
-    #         result_file.write(
-    #             ' occured\n'
-    #         )
-        
-    #     result_file.write('\n')
-    #     result_file.write('\n')
-
-    #     result_file.write('-------------------------- SUGGESTS -----------------------------\n')
-    #     for p in self.pairs:
-    #         if p.costs['ET'] < self.costs['ET']:
-    #             p.write_to_file(result_file)
-
-
 
 
     def __get_default_configs(self):

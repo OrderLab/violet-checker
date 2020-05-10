@@ -115,7 +115,6 @@ class ImpactTable:
         workload = None
         index = self.dict[state_id]['workloads']
         if len(index) == 1:
-            # TODO handle workload by -> self.workloadindex['workload_<index>'].append[state_id]
             workload = self.workload_json[index[0]]
         elif len(index) == 2:
             workload = self.workload_json[index[0]][index[1]]
@@ -205,63 +204,6 @@ class ImpactTable:
             n -= 1
             if not n:
                 break
-
-    # def write_worst_workload(self, file, n):
-
-    #     assert n >= 0, "n must be larger than zero"
-    #     if n == 0:
-    #         return
-
-    #     rows = [self.get_row(_id) for _id in self.dict]
-    #     rows.sort(key=lambda x: x.costs['ET'], reverse=True)
-        
-    #     file.write('--------- TOP %s WORST WORKLOAD(s) FROM THE IMPACT TABLE ---------\n' % (n))
-
-    #     for r in rows:
-    #         file.write('########## WORKLOAD RECORD ##########\n')
-    #         file.write('State %s workloads =>\n' % (r.state_id))
-    #         if not r.workloads:
-    #             file.write('          None\n')
-    #         else:
-    #             for w in r.workloads:
-    #                 file.write('          %s\n' % (w))
-    #         file.write('constraints =>\n')
-    #         for c in r.constraints:
-    #             file.write(' '*5 + '%s = %s\n' % (c, r.constraints[c]))
-    #         file.write('the total execution time was %sms\n' % (r.costs['ET']))
-    #         file.write('total %s instructions and %s syscalls were occured\n' % (r.costs['IC'], r.costs['SC']))
-    #         file.write('\n')
-
-    #         n -= 1
-    #         if not n:
-    #             break
-        
-    #     file.write('\n')
-
-    # def write_workload_suggestion(self, file):
-
-    #     file.write('------------------------ WORKLOAD SUGGESTIONS --------------------\n')
-
-    #     for index in self.workload_type:
-    #         rows = [self.get_row(_id) for _id in self.workload_type[index]]
-    #         rows.sort(key=lambda x: x.costs['ET'], reverse=False)
-    #         for r in rows:
-    #             file.write('########## WORKLOAD RECORD ##########\n')
-    #             file.write('State %s workloads =>\n' % (r.state_id))
-    #             if not r.workloads:
-    #                 file.write('          None\n')
-    #             else:
-    #                 for w in r.workloads:
-    #                     file.write('          %s\n' % (w))
-    #             file.write('constraints =>\n')
-    #             for c in r.constraints:
-    #                 file.write(' '*5 + '%s = %s\n' % (c, r.constraints[c]))
-    #             file.write('the total execution time was %sms\n' % (r.costs['ET']))
-    #             file.write('total %s instructions and %s syscalls were occured\n' % (r.costs['IC'], r.costs['SC']))
-    #             file.write('\n')
-    #             break
-
-    #     file.write('\n')
 
 
     def get_row(self, state_id):
