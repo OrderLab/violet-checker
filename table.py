@@ -159,6 +159,7 @@ class ImpactTable:
                     if ok:
                         self.dict[id_i]['pairs'].append(id_j)
         
+    # TODO delete 
     def make_workload_suggestion(self, result_file, my_config):
 
         result_file.write('[+] VIOLET would suggest the best configuration under various workloads:\n\n')
