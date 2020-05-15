@@ -46,12 +46,13 @@ def checker(input_file, output_file, table_file, n, diff):
         if config.check_impact(impact_table):
             print ('HIT cost impact table state %s: %s' % (config.impact_table_id, config.util))
             config.write_result(result_file)
+            config.write_worst_workload(result_file, n)
             # result_file.write('\n\n')
             # impact_table.make_workload_suggestion(result_file, config) # assume it will only be printed once
         print ('-'*39)
 
     result_file.write('\n\n')
-    impact_table.find_worst_workload(result_file, n)
+    # impact_table.find_worst_workload(result_file, n)
 
     print ('The result is written to ' + output_file)
     result_file.close()

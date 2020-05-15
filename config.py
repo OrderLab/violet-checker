@@ -207,12 +207,75 @@ class Config:
         #             else:
         #                 diff[c].append(p)
 
+
+        # TODO add summary, what are those bad configs,,,,, 
+        # is there is bad configs or not, what are those, under how many workload there are better choice,
+        # and the detail are listed as following,,,,,
+        result_file.write('[+] VIOLET Result\n')
+
+        if not len(diff):
+            result_file.write('VIOLET has detected 0 bad configuration in your current configuration file. You are good to go!\n')
+            return
+
         result_file.write(
-            '[+] VIOLET has detected %s potential bad configuration%s in your configuration file:\n\n' % (
+            'VIOLET has detected %s potential bad configuration%s in your current configuration file, ' % (
                 len(diff), ['s',''][len(diff)==1]
             )
         )
-        # TODO add summary; like this?
+        result_file.write('and they are ')
+        ok = False
+        for c in diff:
+            if ok:
+                result_file.write(', ')
+            else:
+                ok = True
+            result_file.write(c)
+            
+        dw = []
+        for c in diff_w:
+            for p in diff_w[c]:
+                if p.workload_option not in dw:
+                    dw.append(p.workload_option)
+        result_file.write('. Under %s different workloads, you have better choices to make. \n' % (len(dw)))
+
+        for c in diff:
+            result_file.write('For %s, ' % (c))
+            fw = True
+            for w in dw:
+                f,t = True, False
+                for p in diff_w[c]:
+                    if p.workload_option != w:
+                        continue
+                    if f:
+                        result_file.write(
+                            '%shen your workload is *%s*, you can get a better performance by setting its value to %s' % 
+                            (['W','w'][fw],w.replace('_', ' '), p.constraints[c])
+                        )
+                        f, fw = False, False
+                        continue
+                    t = True
+                    result_file.write('/%s' % (p.constraints[c]))
+                if t:
+                    result_file.write('. ')
+            result_file.write('\n')
+                    
+
+                # result_file.write('%s' % ([
+                #             ', %s'%([p.constraints[c],str(p.constraints[c])][p is diff[c][len(diff[c])-1]]),
+                #             '%s = %s'%(p.constraints[c])
+                #         ][p is diff[c][0]]))
+            # result_file.write(' %s better setting%s. ' % 
+            #     (['are', 'is the'][len(diff[c])==1], ['s', ''][len(diff[c])==1])
+            # )
+        result_file.write('\nDetails are shown below.\n\n')
+
+
+        # result_file.write(
+        #     '[+] VIOLET has detected %s potential bad configuration%s in your configuration file:\n\n' % (
+        #         len(diff), ['s',''][len(diff)==1]
+        #     )
+        # )
+        
 
         for c in diff:
             result_file.write('[%s]\n' % (c))
@@ -307,7 +370,6 @@ class Config:
             result_file.write('\n')
 
 
-
         # for p in self.pairs:
         #     diff_c = []
         #     for p_c in p.constraints:
@@ -356,6 +418,34 @@ class Config:
         #         )
         #     result_file.write('\n')
 
+    def write_worst_workload(self, result_file, n):
+        assert n >= 0, "n must be larger than zero"
+        if n == 0:
+            return
+        
+        result_file.write('[+] Based on VIOLET’s analysis, the top %s worst workload%s %s:\n\n'
+            % (n, ['s', ''][n == 1], ['are', 'is'][n == 1])
+        )
+
+        rows = [self.impact_table_rows[w] for w in self.impact_table_rows]
+        rows.sort(key=lambda x: x.costs['ET'], reverse=True)
+
+        top = 1
+        for r in rows:
+            result_file.write('#%s\n' % (top))
+            result_file.write('When the workload is:\n')
+            r.write_workloads(result_file, 4)
+            result_file.write('And the configuration is:\n')
+            r.write_constraints(result_file)
+            r.write_costs(result_file)
+            r.write_IO_results(result_file)
+            result_file.write('\n')
+            # result_file.write('the total execution time is %sms\n\n' % (r.costs['ET']))
+
+            top += 1
+            n -= 1
+            if not n:
+                break
 
     def __get_default_configs(self):
         return {

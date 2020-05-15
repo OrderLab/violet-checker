@@ -197,34 +197,34 @@ class ImpactTable:
                 )
                 break
 
-    def find_worst_workload(self, result_file, n):
-        assert n >= 0, "n must be larger than zero"
-        if n == 0:
-            return
+    # def find_worst_workload(self, result_file, n):
+    #     assert n >= 0, "n must be larger than zero"
+    #     if n == 0:
+    #         return
         
-        result_file.write('[+] Based on VIOLET’s analysis, the top %s worst workloads %s:\n\n'
-            % (n, ['are', 'is'][n == 1])
-        )
+    #     result_file.write('[+] Based on VIOLET’s analysis, the top %s worst workloads %s:\n\n'
+    #         % (n, ['are', 'is'][n == 1])
+    #     )
 
-        rows = [self.get_row(_id) for _id in self.dict]
-        rows.sort(key=lambda x: x.costs['ET'], reverse=True)
+    #     rows = [self.get_row(_id) for _id in self.dict]
+    #     rows.sort(key=lambda x: x.costs['ET'], reverse=True)
 
-        top = 1
-        for r in rows:
-            result_file.write('#%s\n' % (top))
-            result_file.write('When the workload is:\n')
-            r.write_workloads(result_file, 4)
-            result_file.write('And the configuration is:\n')
-            r.write_constraints(result_file)
-            r.write_costs(result_file)
-            r.write_IO_results(result_file)
-            result_file.write('\n')
-            # result_file.write('the total execution time is %sms\n\n' % (r.costs['ET']))
+    #     top = 1
+    #     for r in rows:
+    #         result_file.write('#%s\n' % (top))
+    #         result_file.write('When the workload is:\n')
+    #         r.write_workloads(result_file, 4)
+    #         result_file.write('And the configuration is:\n')
+    #         r.write_constraints(result_file)
+    #         r.write_costs(result_file)
+    #         r.write_IO_results(result_file)
+    #         result_file.write('\n')
+    #         # result_file.write('the total execution time is %sms\n\n' % (r.costs['ET']))
 
-            top += 1
-            n -= 1
-            if not n:
-                break
+    #         top += 1
+    #         n -= 1
+    #         if not n:
+    #             break
 
     def get_row(self, state_id):
         constraints = self.dict[state_id]['constraints']
