@@ -4,13 +4,14 @@ from util import *
 from config import *
 
 class ImpactTableRow:
-    def __init__(self, state_id, constraints, costs, pairs, workloads):
+    def __init__(self, state_id, constraints, costs, pairs, workloads, workload_option):
         self.state_id = state_id
         self.constraints = constraints
         self.costs = costs
         self.pairs = pairs
         #TODO add workload?
         self.workloads = workloads
+        self.workload_option = workload_option
     
     # def write_to_file(self, file):
     #     file.write('########## STATE %s RECORD ##########\n' % (self.state_id))
@@ -36,6 +37,15 @@ class ImpactTableRow:
             return
         for w in self.workloads:
             file.write(' '*n + '%s\n' % (w))
+    
+    def get_workload_file_name(self):
+        return 'oltp_' + self.workload_option + '.lua'
+
+    # def write_command_line(self, file, n):
+    #     if not self.workload_option:
+    #         file.write(' '*n + 'sysbench: None')
+    #         return
+    #     file.write(' '*n + 'sysbench: ')
     
     def write_IO_results(self, file):
         _c = self.costs['IO']
@@ -69,6 +79,10 @@ class ImpactTable:
                 # if 'workloads' in self.dict[state_id]:
                 #     print (self.dict[state_id]['workloads'])
                 self.costs_handler(state_id, costs)
+                # dont care the state if there is no workload index
+                if 'workloads' not in self.dict[state_id]:
+                    self.dict.pop(state_id, None)
+                    continue
                 self.workloads_handler(state_id)
                 # # print (self.dict[state_id]['workloads'])
                 # for i in self.dict[state_id]['workloads']:
@@ -119,6 +133,8 @@ class ImpactTable:
         elif len(index) == 2:
             workload = self.workload_json[index[0]][index[1]]
         if not workload:
+            self.dict[state_id]['workload_index'] = ''
+            self.dict[state_id]['workload_option'] = ''
             return
         
         if not isinstance(workload, list):
@@ -132,6 +148,8 @@ class ImpactTable:
         self.dict[state_id]['workloads'] = workload
 
         workload_index = ''.join([str(i) for i in index])
+        self.dict[state_id]['workload_index'] = workload_index
+        self.dict[state_id]['workload_option'] = self.__get_workload_options()[workload_index]
         if workload_index in self.workload_type:
             self.workload_type[workload_index].append(state_id)
         else:
@@ -146,6 +164,8 @@ class ImpactTable:
                 _n = n
                 ok = True
                 if id_i == id_j:
+                    continue
+                elif self.dict[id_i]['workload_index'] != self.dict[id_j]['workload_index']:
                     continue
                 else:
                     for c in self.dict[id_i]['constraints']:
@@ -206,13 +226,13 @@ class ImpactTable:
             if not n:
                 break
 
-
     def get_row(self, state_id):
         constraints = self.dict[state_id]['constraints']
         costs = self.dict[state_id]['costs']
         pairs = self.dict[state_id]['pairs']
         workloads = self.dict[state_id]['workloads']
-        return ImpactTableRow(state_id, constraints, costs, pairs, workloads)
+        workload_option = self.dict[state_id]['workload_option']
+        return ImpactTableRow(state_id, constraints, costs, pairs, workloads, workload_option)
     
     def __get_workload_json(self):
         ___point = 'SELECT * FROM table_name WHERE id = value'
@@ -221,8 +241,8 @@ class ImpactTable:
         ___sum = 'SELECT sum FROM table_name WHERE id BETWEEN value AND value ORDER BY column'
         ___distinct = 'SELECT DISTINCT * FROM table_name WHERE id BETWEEN value AND value ORDER BY column'
         ___insert = 'INSERT INTO table_name value'
-        ___no_index = 'UPDATE table_name SET column WHERE id=value'
-        ___index = 'UPDATE table_name SET column WHERE id=value'
+        ___no_index = 'UPDATE table_name SET column = no index update WHERE id = value'
+        ___index = 'UPDATE table_name SET column = index update WHERE id = value'
         ___delete = 'DELETE FROM table_name WHERE id = value'
         __range = [___simple, ___orderby, ___sum, ___distinct]
         __select = [___point, __range]
@@ -235,12 +255,26 @@ class ImpactTable:
         _write = _json[2]
 
         return [
-            _read, _insert, _update, _write
+            _read, _insert, _update, _write,
         ]
 
         # return [
         #     flatten_list(_read), flatten_list(_insert)
         # ]
+
+    def __get_workload_options(self):
+        return {
+            '0' : 'read',
+            '1' : 'insert',
+            '2' : 'update',
+            '3' : 'write',
+            '00' : 'read_range',
+            '01' : 'read_write',
+            '02' : 'read_only',
+            '03' : 'read_point',
+            '20' : 'update_non_index',
+            '21' : 'update_index',
+        }
 
     def __get_constraints_process_table(self):
         return {

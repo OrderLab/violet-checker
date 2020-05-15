@@ -21,4 +21,3 @@ def flatten_list(l):
                 if i not in r:
                     r.append(i)
     return r
-
