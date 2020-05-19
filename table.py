@@ -9,19 +9,8 @@ class ImpactTableRow:
         self.constraints = constraints
         self.costs = costs
         self.pairs = pairs
-        #TODO add workload?
         self.workloads = workloads
         self.workload_option = workload_option
-    
-    # def write_to_file(self, file):
-    #     file.write('########## STATE %s RECORD ##########\n' % (self.state_id))
-    #     # file.write('state %s from the cost impact table\n' % (self.state_id))
-    #     file.write('constraints =>\n')
-    #     for c in self.constraints:
-    #         file.write(' '*5 + '%s = %s\n' % (c, self.constraints[c]))
-    #     file.write('the total execution time was %sms\n' % (self.costs['ET']))
-    #     file.write('total %s instructions and %s syscalls were occured\n' % (self.costs['IC'], self.costs['SC']))
-    #     file.write('\n')
 
     def write_constraints(self, file):
         for c in self.constraints:
@@ -197,35 +186,6 @@ class ImpactTable:
                 )
                 break
 
-    # def find_worst_workload(self, result_file, n):
-    #     assert n >= 0, "n must be larger than zero"
-    #     if n == 0:
-    #         return
-        
-    #     result_file.write('[+] Based on VIOLET’s analysis, the top %s worst workloads %s:\n\n'
-    #         % (n, ['are', 'is'][n == 1])
-    #     )
-
-    #     rows = [self.get_row(_id) for _id in self.dict]
-    #     rows.sort(key=lambda x: x.costs['ET'], reverse=True)
-
-    #     top = 1
-    #     for r in rows:
-    #         result_file.write('#%s\n' % (top))
-    #         result_file.write('When the workload is:\n')
-    #         r.write_workloads(result_file, 4)
-    #         result_file.write('And the configuration is:\n')
-    #         r.write_constraints(result_file)
-    #         r.write_costs(result_file)
-    #         r.write_IO_results(result_file)
-    #         result_file.write('\n')
-    #         # result_file.write('the total execution time is %sms\n\n' % (r.costs['ET']))
-
-    #         top += 1
-    #         n -= 1
-    #         if not n:
-    #             break
-
     def get_row(self, state_id):
         constraints = self.dict[state_id]['constraints']
         costs = self.dict[state_id]['costs']
@@ -281,6 +241,8 @@ class ImpactTable:
             'autocommit' : [255, 1],
             'binlog_format' : [72340172838076676, 4],
             'sql_log_bin' : [255, 1],
+            'innodb_flush_log_at_trx_commit' : [72340172838076673, 2],
+            
         }
 
             

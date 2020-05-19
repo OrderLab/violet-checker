@@ -8,6 +8,7 @@ class Config:
         self.impact_table_id = -1
         self.costs = {}
         self.configs = self.__get_default_configs()
+        self.config_translate_table = self.__get_config_translate_table()
         self.impact_table_rows = {}
         self.impact_table_pairs = {}
         
@@ -16,6 +17,9 @@ class Config:
                 t = ''.join(c.split()).split('=')
                 if t[1].isdigit():
                     t[1] = int(t[1])
+                if t[0] in self.config_translate_table:
+                    if t[1] in self.config_translate_table[t[0]]:
+                        t[1] = self.config_translate_table[t[0]][t[1]]
                 self.configs[t[0]] = t[1]
             else:
                 self.configs[c] = 1
@@ -27,6 +31,9 @@ class Config:
                 t = ''.join(c.split()).split('=')
                 if t[1].isdigit():
                     t[1] = int(t[1])
+                if t[0] in self.config_translate_table:
+                    if t[1] in self.config_translate_table[t[0]]:
+                        t[1] = self.config_translate_table[t[0]][t[1]]
                 self.configs[t[0]] = t[1]
             else:
                 self.configs[c] = 1
@@ -54,8 +61,6 @@ class Config:
                 r = impact_table.get_row(_id)
                 assert r.workload_option not in self.impact_table_rows, "duplicated workload option"
                 self.impact_table_rows[r.workload_option] = r
-                # self.costs = impact_table_row.costs
-                # self.constraints = impact_table_row.constraints
                 self.impact_table_pairs[r.workload_option] = [impact_table.get_row(p) for p in r.pairs]
                 self.impact_table_pairs[r.workload_option].sort(key=lambda x: x.costs['ET'], reverse=False)
                 self.impact_table_pairs[r.workload_option] = [
@@ -64,9 +69,16 @@ class Config:
                     ] if p.costs['ET'] < self.impact_table_rows[r.workload_option].costs['ET']
                 ]
                 # TODO for debug use, delete later
-                # for p in self.impact_table_pairs[r.workload_option]:
-                #     print (str(p.costs['ET']) + ' ' + str(self.impact_table_rows[r.workload_option].costs['ET']))
-                # print ('-'*20)
+                for c in r.constraints:
+                    print ('    %s = %s' % (c, r.constraints[c]))
+                print ('     => %s, %s' % (r.workload_option, r.costs['ET']))
+                for p in self.impact_table_pairs[r.workload_option]:
+                    print ('    p')
+                    for c in p.constraints:
+                        print ('    %s = %s' % (c, p.constraints[c]))
+                    print ('    ' + str(p.costs['ET']))
+                    # print (p.workload_option)
+                print ('-'*20)
                 # self.pairs = [impact_table.get_row(p) for p in impact_table_row.pairs]
                 # self.pairs.sort(key=lambda x: x.costs['ET'], reverse=False)
                 # self.pairs = [p for p in self.pairs if p.costs['ET'] < self.costs['ET']]
@@ -166,20 +178,7 @@ class Config:
     # FIXME assume there's only one difference ... could change to write_result(self, result_file, n) ...
     def write_result(self, result_file):
 
-        diff, diff_w = {}, {}
-        # for w in self.impact_table_rows:
-        #     diff[w] = {}
-        #     for c in self.impact_table_rows[w].constraints:
-        #         for p in self.impact_table_pairs[w]:
-        #             # if c not in p.constraints:
-        #             #     continue
-        #             assert c in p.constraints, 'dkaslfj'
-        #             if self.impact_table_rows[w].constraints[c] != p.constraints[c]:
-        #                 n[c] = None
-        #                 if c not in diff[w]:
-        #                     diff[w][c] = [p,]
-        #                 else:
-        #                     diff[w][c].append(p)
+        diff, diff_w = {}, {} # diff_w contains same constraints under different workloads
 
         for c in self.configs:
             for w in self.impact_table_pairs:
@@ -194,23 +193,8 @@ class Config:
                             diff_w[c].append(p)
                             if p.constraints[c] not in [pp.constraints[c] for pp in diff[c]]:
                                 diff[c].append(p)
-                        # print ([[a.constraints[c], a.workload_option] for a in diff[c]])
-                        # print ('-'*20)
-
-        # for c in self.configs:
-        #     for p in self.pairs:
-        #         if c not in p.constraints:
-        #             continue
-        #         if self.configs[c] != p.constraints[c]:
-        #             if c not in diff:
-        #                 diff[c] = [p,]
-        #             else:
-        #                 diff[c].append(p)
 
 
-        # TODO add summary, what are those bad configs,,,,, 
-        # is there is bad configs or not, what are those, under how many workload there are better choice,
-        # and the detail are listed as following,,,,,
         result_file.write('[+] VIOLET Result\n')
 
         if not len(diff):
@@ -259,23 +243,7 @@ class Config:
                     result_file.write('. ')
             result_file.write('\n')
                     
-
-                # result_file.write('%s' % ([
-                #             ', %s'%([p.constraints[c],str(p.constraints[c])][p is diff[c][len(diff[c])-1]]),
-                #             '%s = %s'%(p.constraints[c])
-                #         ][p is diff[c][0]]))
-            # result_file.write(' %s better setting%s. ' % 
-            #     (['are', 'is the'][len(diff[c])==1], ['s', ''][len(diff[c])==1])
-            # )
         result_file.write('\nDetails are shown below.\n\n')
-
-
-        # result_file.write(
-        #     '[+] VIOLET has detected %s potential bad configuration%s in your configuration file:\n\n' % (
-        #         len(diff), ['s',''][len(diff)==1]
-        #     )
-        # )
-        
 
         for c in diff:
             result_file.write('[%s]\n' % (c))
@@ -285,7 +253,7 @@ class Config:
             for p in diff[c]:
                 result_file.write('%s' % ([
                             ', %s'%([p.constraints[c],str(p.constraints[c])+'\n'][p is diff[c][len(diff[c])-1]]),
-                            '    %s = %s'%(c, p.constraints[c])
+                            '    %s = %s'%(c, [p.constraints[c],str(p.constraints[c])+'\n'][p is diff[c][len(diff[c])-1]])
                         ][p is diff[c][0]]))
 
             for pp in diff[c]:
@@ -369,66 +337,19 @@ class Config:
 
             result_file.write('\n')
 
-
-        # for p in self.pairs:
-        #     diff_c = []
-        #     for p_c in p.constraints:
-        #         if p.constraints[p_c] != self.configs[p_c]:
-        #             diff_c.append(p_c)
-        #     if not diff_c:
-        #         continue # shouldn't be empty
-        #     for c in diff_c:
-        #         result_file.write('[%s]' % (c))
-        #     result_file.write('\nYour current setting is:\n')
-        #     for c in diff_c:
-        #         result_file.write('    %s = %s\n' % (c, self.configs[c]))
-        #     result_file.write('A better setting could be:\n')
-        #     for c in diff_c:
-        #         result_file.write('    %s = %s\n' % (c, p.constraints[c]))
-        #     result_file.write('Potential performance impacts are:\n')
-        #     result_file.write('    When the workload is\n')
-        #     p.write_workloads(result_file, 8)
-        #     r =  (self.costs['ET'] - p.costs['ET']) / p.costs['ET'] * 100
-        #     result_file.write('    Your current setting is %s slower than the new setting\n'
-        #         % (['%.2f%%'%(r), 'almost infinitely'][r == float('inf')])
-        #     )
-        #     p_total_readbytes = p.costs['IO']['read'][0] + p.costs['IO']['pread'][0]
-        #     total_readbytes = self.costs['IO']['read'][0] + self.costs['IO']['pread'][0]
-        #     if p_total_readbytes < total_readbytes:
-        #         result_file.write('    The total bytes read (read+pread) is reduced by %.2f%%\n' # TODO increased
-        #             % ((total_readbytes - p_total_readbytes) / total_readbytes * 100)
-        #         )
-        #     p_total_readcalls = p.costs['IO']['read'][1] + p.costs['IO']['pread'][1]
-        #     total_readcalls = self.costs['IO']['read'][1] + self.costs['IO']['pread'][1]
-        #     if p_total_readcalls < total_readcalls:
-        #         result_file.write('    The total read calls (read+pread) is reduced by %.2f%%\n'
-        #             % ((total_readcalls - p_total_readcalls) / total_readcalls * 100)
-        #         )
-        #     p_total_writebytes = p.costs['IO']['write'][0] + p.costs['IO']['pwrite'][0]
-        #     total_writebytes = self.costs['IO']['write'][0] + self.costs['IO']['pwrite'][0]
-        #     if p_total_writebytes < total_writebytes:
-        #         result_file.write('    The total bytes written (write+pwrite) is reduced by %.2f%%\n'
-        #             % ((total_writebytes - p_total_writebytes) / total_writebytes * 100)
-        #         )
-        #     p_total_writecalls = p.costs['IO']['write'][1] + p.costs['IO']['pwrite'][1]
-        #     total_writecalls = self.costs['IO']['write'][1] + self.costs['IO']['pwrite'][1]
-        #     if p_total_writecalls < total_writecalls:
-        #         result_file.write('    The total write calls (write+pwrite) is reduced by %.2f%%\n'
-        #             % ((total_writecalls - p_total_writecalls) / total_writecalls * 100)
-        #         )
-        #     result_file.write('\n')
-
     def write_worst_workload(self, result_file, n):
         assert n >= 0, "n must be larger than zero"
         if n == 0:
             return
-        
-        result_file.write('[+] Based on VIOLET’s analysis, the top %s worst workload%s %s:\n\n'
-            % (n, ['s', ''][n == 1], ['are', 'is'][n == 1])
-        )
 
         rows = [self.impact_table_rows[w] for w in self.impact_table_rows]
         rows.sort(key=lambda x: x.costs['ET'], reverse=True)
+
+        if n > len(rows):
+            n = len(rows)
+        result_file.write('[+] Based on VIOLET’s analysis, the top %s worst workload%s %s:\n\n'
+            % (n, ['s', ''][n == 1], ['are', 'is'][n == 1])
+        )
 
         top = 1
         for r in rows:
@@ -453,6 +374,15 @@ class Config:
             'sync_binlog' : 1,
             'binlog_format' : 0,
             'sql_log_bin' : 1,
+            'innodb_flush_log_at_trx_commit' : 1,
+            'innodb_fast_shutdown' : 1,
+            'innodb_force_recovery' : 0,
+
+        }
+    
+    def __get_config_translate_table(self):
+        return {
+            'binlog_format' : {'row':0, 'statement':1, 'mixed':2},
         }
 
         # write result --->

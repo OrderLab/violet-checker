@@ -34,15 +34,15 @@ def checker(input_file, output_file, table_file, n, diff):
     for (u, c) in zip(utils, cnfs):
         config = Config(u, c)
         
-        # print(config.util)
-        # for c in config.configs:
-        #     print (c + " = " + str(config.configs[c]))
-        # print ('-'*39)
+        print(config.util)
+        for c in config.configs:
+            print (c + " = " + str(config.configs[c]))
+        print ('-'*39)
 
         if config.util != 'mysqld':
             continue
 
-        print ('-'*39)
+        # print ('-'*39)
         if config.check_impact(impact_table):
             print ('HIT cost impact table state %s: %s' % (config.impact_table_id, config.util))
             config.write_result(result_file)
