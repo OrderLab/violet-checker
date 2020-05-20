@@ -2,21 +2,38 @@ import re
 from table import *
 
 class Config:
-    def __init__(self, util, cnfs):
+    def __init__(self, util, cnfs, database):
         self.util = util.replace('[', '').replace(']', '')
         self.impact_table_hit = []
         self.impact_table_id = -1
         self.costs = {}
-        self.configs = self.__get_default_configs()
-        self.config_translate_table = self.__get_config_translate_table()
+        # self.configs = self.__get_default_configs()
+        if database == 'mysqld':
+            self.configs = self.__get_mysql_default_configs()
+            self.config_translate_table = self.__get_mysql_config_translate_table()
+        elif database == 'postgresql':
+            self.configs = self.__get_postgresql_default_configs()
+            self.config_translate_table = self.__get_postgresql_config_translate_table()
+        else:
+            self.configs = {}
+            self.config_translate_table = {}
+        
         self.impact_table_rows = {}
         self.impact_table_pairs = {}
         
         for c in cnfs:
             if re.match(r'\S+\s*=\s*\S+', c):
                 t = ''.join(c.split()).split('=')
-                if t[1].isdigit():
+                # if t[1].isdigit():
+                #     t[1] = int(t[1])
+                try:
                     t[1] = int(t[1])
+                except:
+                    try:
+                        t[1] = float(t[1])
+                    except:
+                        if len(t[1]) > 1 and [c for c in t[1]][0] == '\'' and [c for c in t[1]][-1] == '\'':
+                            t[1] = ''.join([c for c in t[1]][1:-1])
                 if t[0] in self.config_translate_table:
                     if t[1] in self.config_translate_table[t[0]]:
                         t[1] = self.config_translate_table[t[0]][t[1]]
@@ -29,8 +46,15 @@ class Config:
         for c in cnfs:
             if re.match(r'\S+\s*=\s*\S+', c):
                 t = ''.join(c.split()).split('=')
-                if t[1].isdigit():
+                # if t[1].isdigit():
+                #     t[1] = int(t[1])
+                try:
                     t[1] = int(t[1])
+                except:
+                    try:
+                        t[1] = float(t[1])
+                    except:
+                        pass
                 if t[0] in self.config_translate_table:
                     if t[1] in self.config_translate_table[t[0]]:
                         t[1] = self.config_translate_table[t[0]][t[1]]
@@ -59,9 +83,60 @@ class Config:
             if ok:
                 hit = True
                 r = impact_table.get_row(_id)
-                assert r.workload_option not in self.impact_table_rows, "duplicated workload option"
+                # assert r.workload_option not in self.impact_table_rows, "duplicated workload option"
+                # use the best case
+                if r.workload_option in self.impact_table_rows:
+                    if r.costs['ET'] > self.impact_table_rows[r.workload_option].costs['ET']:
+                        continue
                 self.impact_table_rows[r.workload_option] = r
-                self.impact_table_pairs[r.workload_option] = [impact_table.get_row(p) for p in r.pairs]
+                # self.impact_table_pairs[r.workload_option] = [impact_table.get_row(p) for p in r.pairs]
+                pl = [impact_table.get_row(p) for p in r.pairs]
+                remove = []
+                # pick the best pair if there is there are pairs with similar constraints
+                for p1 in pl:
+                    # p1_remove = False
+                    for p2 in pl:
+                        if p1 == p2:
+                            continue
+                        same = True
+                        if len(p1.constraints) > len(p2.constraints):
+                            for c in p1.constraints:
+                                if c not in p2.constraints:
+                                    same = False
+                                    break
+                                if p1.constraints[c] != p2.constraints[c]:
+                                    same = False
+                                    break
+                        else:
+                            for c in p2.constraints:
+                                if c not in p1.constraints:
+                                    same = False
+                                    break
+                                if p1.constraints[c] != p2.constraints[c]:
+                                    same = False
+                                    break
+                        if same:
+                            # print ('same')
+                            if p1.costs['ET'] > p2.costs['ET']:
+                                remove.append(p1)
+                            else:
+                                remove.append(p2)
+                for p in remove:
+                    if p in pl:
+                        pl.remove(p)
+                # TODO for debug use, delete later
+                # pc = [impact_table.get_row(p) for p in r.pairs]
+                # print ('>>>>>>>>>>>>>>>')
+                # for p in pc:
+                #     print ('--------')
+                #     for c in p.constraints:
+                #         print ('%s = %s' % (c, p.constraints[c]))
+                # print (' -> ')
+                # for p in pl:
+                #     print ('--------')
+                #     for c in p.constraints:
+                #         print ('%s = %s' % (c, p.constraints[c]))
+                self.impact_table_pairs[r.workload_option] = pl
                 self.impact_table_pairs[r.workload_option].sort(key=lambda x: x.costs['ET'], reverse=False)
                 self.impact_table_pairs[r.workload_option] = [
                     p for p in self.impact_table_pairs[
@@ -69,21 +144,16 @@ class Config:
                     ] if p.costs['ET'] < self.impact_table_rows[r.workload_option].costs['ET']
                 ]
                 # TODO for debug use, delete later
-                for c in r.constraints:
-                    print ('    %s = %s' % (c, r.constraints[c]))
-                print ('     => %s, %s' % (r.workload_option, r.costs['ET']))
-                for p in self.impact_table_pairs[r.workload_option]:
-                    print ('    p')
-                    for c in p.constraints:
-                        print ('    %s = %s' % (c, p.constraints[c]))
-                    print ('    ' + str(p.costs['ET']))
-                    # print (p.workload_option)
-                print ('-'*20)
-                # self.pairs = [impact_table.get_row(p) for p in impact_table_row.pairs]
-                # self.pairs.sort(key=lambda x: x.costs['ET'], reverse=False)
-                # self.pairs = [p for p in self.pairs if p.costs['ET'] < self.costs['ET']]
-                # self.impact_table_id = _id
-                # break
+                # for c in r.constraints:
+                #     print ('    %s = %s' % (c, r.constraints[c]))
+                # print ('     => %s, %s' % (r.workload_option, r.costs['ET']))
+                # for p in self.impact_table_pairs[r.workload_option]:
+                #     print ('    p')
+                #     for c in p.constraints:
+                #         print ('    %s = %s' % (c, p.constraints[c]))
+                #     print ('    ' + str(p.costs['ET']))
+                #     # print (p.workload_option)
+                # print ('-'*20)
         return hit
 
     def write_result_diff(self, result_file, config_diff, config_diff_name):
@@ -198,7 +268,7 @@ class Config:
         result_file.write('[+] VIOLET Result\n')
 
         if not len(diff):
-            result_file.write('VIOLET has detected 0 bad configuration in your current configuration file. You are good to go!\n')
+            result_file.write('VIOLET has detected 0 bad configuration in your current configuration file. You are good to go!\n\n')
             return
 
         result_file.write(
@@ -266,11 +336,18 @@ class Config:
                     # result_file.write('\n')
                     result_file.write('    >> Under the workload:\n')
                     p.write_workloads(result_file, 8)
-                    result_file.write(
-                        '        $sysbench --mysql-socket=' + self.configs['socket'] + 
-                        ' --mysql-db=test --table-size= 100000 --threads=1 --time=120 --events=0' + 
-                        ' --report-interval=10 ' + p.get_workload_file_name() + ' prepare\n'
-                    )
+                    if 'socket' in self.configs:
+                        result_file.write(
+                            '        $sysbench --mysql-socket=' + self.configs['socket'] + 
+                            ' --mysql-db=test --table-size= 100000 --threads=1 --time=120 --events=0' + 
+                            ' --report-interval=10 ' + p.get_workload_file_name() + ' prepare\n'
+                        )
+                    else:
+                        result_file.write(
+                            '        $sysbench --mysql-socket=' + 
+                            ' --mysql-db=test --table-size= 100000 --threads=1 --time=120 --events=0' + 
+                            ' --report-interval=10 ' + p.get_workload_file_name() + ' prepare\n'
+                        )
                     result_file.write('    Potential performance impacts are:\n')
                     r =  (costs['ET'] - p.costs['ET']) / p.costs['ET'] * 100
                     result_file.write('        Your current setting is %s slower than the new setting\n'
@@ -368,7 +445,7 @@ class Config:
             if not n:
                 break
 
-    def __get_default_configs(self):
+    def __get_mysql_default_configs(self):
         return {
             'autocommit' : 1,
             'sync_binlog' : 1,
@@ -377,12 +454,27 @@ class Config:
             'innodb_flush_log_at_trx_commit' : 1,
             'innodb_fast_shutdown' : 1,
             'innodb_force_recovery' : 0,
-
+            'query_cache_type' : 0,
+            'query_cache_size' : 1048576,
         }
     
-    def __get_config_translate_table(self):
+    def __get_postgresql_default_configs(self):
+        return {
+            'log_statement' : 0,
+            'random_page_cost' : 4,
+            'wal_sync_method' : 1,
+            'wal_level' : 1,
+            'password_encryption' : 1
+        }
+    
+    def __get_mysql_config_translate_table(self):
         return {
             'binlog_format' : {'row':0, 'statement':1, 'mixed':2},
+        }
+    
+    def __get_postgresql_config_translate_table(self):
+        return {
+            'log_statement' : {'none':0, 'ddl':1, 'mod':2, 'all':3},
         }
 
         # write result --->

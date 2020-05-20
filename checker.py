@@ -4,13 +4,19 @@ import argparse
 from util import *
 from config import *
 
-def checker(input_file, output_file, table_file, n, diff):
+def checker(input_file, output_file, table_file, n, diff, target, database):
 
     result_file = open(output_file, 'w')
 
     impact_table = ImpactTable(table_file)
-    utils, cnfs = read_config_file(input_file)
-    impact_table.find_all_pairs(1)
+    impact_table.find_all_pairs(1, target)
+
+    if database == 'mysqld':
+        utils, cnfs = read_mysql_config_file(input_file)
+    elif database == 'postgresql':
+        cnfs = read_postgresql_config_file(input_file)
+        utils = ['[postgresql]']
+    # print (cnfs)
 
     # diff
     if diff:
@@ -18,8 +24,8 @@ def checker(input_file, output_file, table_file, n, diff):
             print ('invalid config format')
             return
         for (u, c) in zip(utils, cnfs):
-            config = Config(u, c)
-            if config.util != 'mysqld':
+            config = Config(u, c, database)
+            if config.util != database:
                 continue
             config_diff = Config(u, c)
             config_diff.util += '_diff'
@@ -32,14 +38,14 @@ def checker(input_file, output_file, table_file, n, diff):
 
     # non diff 
     for (u, c) in zip(utils, cnfs):
-        config = Config(u, c)
+        config = Config(u, c, database)
         
         print(config.util)
         for c in config.configs:
             print (c + " = " + str(config.configs[c]))
         print ('-'*39)
 
-        if config.util != 'mysqld':
+        if config.util != database:
             continue
 
         # print ('-'*39)
@@ -47,6 +53,8 @@ def checker(input_file, output_file, table_file, n, diff):
             print ('HIT cost impact table state %s: %s' % (config.impact_table_id, config.util))
             config.write_result(result_file)
             config.write_worst_workload(result_file, n)
+        else:
+            result_file.write('[+] VIOLET detected no bad configuration in your file. You are good to go!\n')
             # result_file.write('\n\n')
             # impact_table.make_workload_suggestion(result_file, config) # assume it will only be printed once
         print ('-'*39)
@@ -62,9 +70,11 @@ def checker(input_file, output_file, table_file, n, diff):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='check misconfigurations')
+    parser.add_argument('-b', '--database', default='mysqld')
     parser.add_argument('-i', '--input')
     parser.add_argument('-o', '--output', default='result.txt')
     parser.add_argument('-t', '--table', default='impact_table.csv')
+    parser.add_argument('-a', '--target', default='') # i.e. 'autocommit, binlog'
     parser.add_argument('-w', '--workload_number', default=0)
     parser.add_argument('-d', '--diff', default=False)
 
@@ -75,4 +85,4 @@ if __name__ == "__main__":
         parser.print_help()
         exit()
     
-    checker(args.input, args.output, args.table, int(args.workload_number), args.diff)
+    checker(args.input, args.output, args.table, int(args.workload_number), args.diff, args.target, args.database)

@@ -80,8 +80,15 @@ class ImpactTable:
 
     def constraints_handler(self, state_id, constraints):
         for c in [c.split('==') for c in constraints]:
-            if c[1].isdigit():
-                    c[1] = int(c[1])
+            # if c[1].isdigit():
+            #         c[1] = int(c[1])
+            try:
+                c[1] = int(c[1])
+            except:
+                try:
+                    c[1] = float(c[1])
+                except:
+                    pass
             if c[0] in self.constraints_process_table:
                 if c[1] == self.constraints_process_table[c[0]][0]:
                     c[1] = self.constraints_process_table[c[0]][1]
@@ -146,7 +153,10 @@ class ImpactTable:
 
         
         
-    def find_all_pairs(self, n):
+    def find_all_pairs(self, n, target):
+        t = []
+        if target:
+            t = target.split(',')
         for id_i in self.dict:
             self.dict[id_i]['pairs'] = []
             for id_j in self.dict:
@@ -160,6 +170,9 @@ class ImpactTable:
                     for c in self.dict[id_i]['constraints']:
                         if c in self.dict[id_j]['constraints']:
                             if self.dict[id_i]['constraints'][c] != self.dict[id_j]['constraints'][c]:
+                                if t:
+                                    if c not in t:
+                                        ok = False
                                 _n -= 1
                         else:
                             ok = False
@@ -242,7 +255,7 @@ class ImpactTable:
             'binlog_format' : [72340172838076676, 4],
             'sql_log_bin' : [255, 1],
             'innodb_flush_log_at_trx_commit' : [72340172838076673, 2],
-            
+            'log_statement' : [16843009, 3],
         }
 
             
