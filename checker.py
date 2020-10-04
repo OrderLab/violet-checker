@@ -4,7 +4,7 @@ import argparse
 from util import *
 from config import *
 
-def checker(input_file, output_file, table_file, n, diff, target, database):
+def checker(input_file, output_file, table_file, n, diff, target, database, workload_option):
 
     result_file = open(output_file, 'w')
 
@@ -24,7 +24,7 @@ def checker(input_file, output_file, table_file, n, diff, target, database):
             print ('invalid config format')
             return
         for (u, c) in zip(utils, cnfs):
-            config = Config(u, c, database)
+            config = Config(u, c, database, workload_option)
             if config.util != database:
                 continue
             config_diff = Config(u, c)
@@ -38,12 +38,12 @@ def checker(input_file, output_file, table_file, n, diff, target, database):
 
     # non diff 
     for (u, c) in zip(utils, cnfs):
-        config = Config(u, c, database)
+        config = Config(u, c, database, workload_option)
         
-        print(config.util)
-        for c in config.configs:
-            print (c + " = " + str(config.configs[c]))
-        print ('-'*39)
+        # print(config.util)
+        # for c in config.configs:
+        #     print (c + " = " + str(config.configs[c]))
+        # print ('-'*39)
 
         if config.util != database:
             continue
@@ -57,7 +57,7 @@ def checker(input_file, output_file, table_file, n, diff, target, database):
             result_file.write('[+] VIOLET detected no bad configuration in your file. You are good to go!\n')
             # result_file.write('\n\n')
             # impact_table.make_workload_suggestion(result_file, config) # assume it will only be printed once
-        print ('-'*39)
+        # print ('-'*39)
 
     result_file.write('\n\n')
     # impact_table.find_worst_workload(result_file, n)
@@ -73,11 +73,11 @@ if __name__ == "__main__":
     parser.add_argument('-b', '--database', default='mysqld')
     parser.add_argument('-i', '--input')
     parser.add_argument('-o', '--output', default='result.txt')
-    parser.add_argument('-t', '--table', default='impact_table.csv')
+    parser.add_argument('-t', '--table', nargs='+', default='impact_table.csv')
     parser.add_argument('-a', '--target', default='') # i.e. 'autocommit, binlog'
     parser.add_argument('-w', '--workload_number', default=0)
     parser.add_argument('-d', '--diff', default=False)
-
+    parser.add_argument('-l', '--workload_option', default='')
 
     args = parser.parse_args()
 
@@ -85,4 +85,6 @@ if __name__ == "__main__":
         parser.print_help()
         exit()
     
-    checker(args.input, args.output, args.table, int(args.workload_number), args.diff, args.target, args.database)
+    for i in range(len(args.table)):
+        out = args.output.split('.')[0] + '_' + str(i+1) + '.' + args.output.split('.')[1]
+        checker(args.input, out, args.table[i], int(args.workload_number), args.diff, args.target, args.database, args.workload_option)

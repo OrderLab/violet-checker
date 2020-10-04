@@ -2,7 +2,8 @@ import re
 from table import *
 
 class Config:
-    def __init__(self, util, cnfs, database):
+    def __init__(self, util, cnfs, database, workload_option):
+        self.workload_option = workload_option
         self.util = util.replace('[', '').replace(']', '')
         self.impact_table_hit = []
         self.impact_table_id = -1
@@ -77,6 +78,10 @@ class Config:
                 v = impact_table.dict[_id]['constraints'][k]
                 if k in self.configs:
                     if v != self.configs[k]:
+                        # print (k)
+                        # print (self.configs[k])
+                        # print (v)
+                        # print ('----')
                         ok = False
                 else:
                     ok = False
@@ -88,6 +93,7 @@ class Config:
                 if r.workload_option in self.impact_table_rows:
                     if r.costs['ET'] > self.impact_table_rows[r.workload_option].costs['ET']:
                         continue
+                # print (self.impact_table_rows)
                 self.impact_table_rows[r.workload_option] = r
                 # self.impact_table_pairs[r.workload_option] = [impact_table.get_row(p) for p in r.pairs]
                 pl = [impact_table.get_row(p) for p in r.pairs]
@@ -99,6 +105,7 @@ class Config:
                         if p1 == p2:
                             continue
                         same = True
+                        # FIXME ??? > or < ???
                         if len(p1.constraints) > len(p2.constraints):
                             for c in p1.constraints:
                                 if c not in p2.constraints:
@@ -115,7 +122,25 @@ class Config:
                                 if p1.constraints[c] != p2.constraints[c]:
                                     same = False
                                     break
+                        # if len(p1.constraints) > len(p2.constraints):
+                        #     for c in p1.constraints:
+                        #         if c not in p2.constraints:
+                        #             same = False
+                        #             break
+                        #         if p1.constraints[c] != p2.constraints[c]:
+                        #             same = False
+                        #             break
+                        # else:
+                        #     for c in p2.constraints:
+                        #         if c not in p1.constraints:
+                        #             same = False
+                        #             break
+                        #         if p1.constraints[c] != p2.constraints[c]:
+                        #             same = False
+                        #             break
                         if same:
+                            # print (p1)
+                            # print (p2)
                             # print ('same')
                             if p1.costs['ET'] > p2.costs['ET']:
                                 remove.append(p1)
@@ -176,8 +201,76 @@ class Config:
         result_file.write('    %s = %s\n' % (config_diff_name, self.configs[config_diff_name]))
         result_file.write('A better setting is:\n')
         result_file.write('    %s = %s\n' % (config_diff_name, config_diff.configs[config_diff_name]))
+
+        result_file.write('    >> Under the current workload:\n')
+        if self.workload_option in worst_workloads:
+            costs = self.impact_table_rows[w].costs
+            p = config_diff.impact_table_rows[w]
+            p.write_workloads(result_file, 8)
+            result_file.write(
+                '        $sysbench --mysql-socket=' + self.configs['socket'] + 
+                ' --mysql-db=test --table-size= 100000 --threads=1 --time=120 --events=0' + 
+                ' --report-interval=10 ' + p.get_workload_file_name() + ' prepare\n'
+            )
+            result_file.write('    Potential performance impacts are:\n')
+            r =  (costs['ET'] - p.costs['ET']) / p.costs['ET'] * 100
+            result_file.write('        Your current setting is %s slower than the new setting\n'
+                % (['%.2f%%'%(r), 'almost infinitely'][r == float('inf')])
+            )
+            p_total_readbytes = p.costs['IO']['read'][0] + p.costs['IO']['pread'][0]
+            total_readbytes = costs['IO']['read'][0] + costs['IO']['pread'][0]
+            p_total_readcalls = p.costs['IO']['read'][1] + p.costs['IO']['pread'][1]
+            total_readcalls = costs['IO']['read'][1] + costs['IO']['pread'][1]
+            p_total_writebytes = p.costs['IO']['write'][0] + p.costs['IO']['pwrite'][0]
+            total_writebytes = costs['IO']['write'][0] + costs['IO']['pwrite'][0]
+            p_total_writecalls = p.costs['IO']['write'][1] + p.costs['IO']['pwrite'][1]
+            total_writecalls = costs['IO']['write'][1] + costs['IO']['pwrite'][1]
+
+            if total_readbytes > p_total_readbytes or total_readcalls > p_total_readcalls or\
+                total_writebytes > p_total_writebytes or total_writecalls > p_total_writecalls:
+                result_file.write('        I/O (read+pread/write+pwrite) impacts are:\n')
+            if total_readbytes > p_total_readbytes:
+                if (p_total_readbytes == 0):
+                    result_file.write('            The total bytes read is increased from 0 to %s bytes\n'
+                        % (total_readbytes)
+                    )
+                else:
+                    result_file.write('            The total bytes read is increased by %.2f%%\n'
+                        % ((total_readbytes - p_total_readbytes) / p_total_readbytes * 100)
+                    )
+            if total_readcalls > p_total_readcalls:
+                if (p_total_readcalls == 0):
+                    result_file.write('            The total read calls is increased from 0 to %s calls\n'
+                        % (total_readcalls)
+                    )
+                else:
+                    result_file.write('            The total read calls is increased by %.2f%%\n'
+                        % ((total_readcalls - p_total_readcalls) / p_total_readcalls * 100)
+                    )
+            if total_writebytes > p_total_writebytes:
+                if (p_total_writebytes == 0):
+                    result_file.write('            The total bytes written is increased from 0 to %s bytes\n'
+                        % (total_writebytes)
+                    )
+                else:
+                    result_file.write('            The total bytes written is increased by %.2f%%\n'
+                        % ((total_writebytes - p_total_writebytes) / p_total_writebytes * 100)
+                    )
+            if total_writecalls > p_total_writecalls:
+                if (p_total_writecalls == 0):
+                    result_file.write('            The total write calls is increased from 0 to %s calls\n'
+                        % (total_writecalls)
+                    )
+                else:
+                    result_file.write('            The total write calls is increased by %.2f%%\n'
+                        % ((total_writecalls - p_total_writecalls) / p_total_writecalls * 100)
+                    )
+        else:
+            result_file.write(' '*8 + 'Your current configuration is relative good\n')
         
         for w in worst_workloads:
+            if (w == self.workload_option):
+                continue
             costs = self.impact_table_rows[w].costs
             p = config_diff.impact_table_rows[w]
             result_file.write('    >> Under the workload:\n')
@@ -325,12 +418,105 @@ class Config:
                             ', %s'%([p.constraints[c],str(p.constraints[c])+'\n'][p is diff[c][len(diff[c])-1]]),
                             '    %s = %s'%(c, [p.constraints[c],str(p.constraints[c])+'\n'][p is diff[c][len(diff[c])-1]])
                         ][p is diff[c][0]]))
+            
+            # for pp in diff[c]:
+            #     for p in [p for p in diff_w[c] if p.constraints[c] == pp.constraints[c]]:
+            #         if p.workload_option not in self.impact_table_rows:
+            #             continue
+            #         print (p.workload_option)
 
             for pp in diff[c]:
                 result_file.write('> Compare to %s = %s:\n' % (c, pp.constraints[c]))
+                # under the current workload
+                if self.workload_option in [p.workload_option for p in diff_w[c] if p.constraints[c] == pp.constraints[c]]:
+                    p = [p for p in diff_w[c] if p.constraints[c] == pp.constraints[c] and p.workload_option == self.workload_option][0]
+                    costs = self.impact_table_rows[p.workload_option].costs
+                    # result_file.write('\n')
+                    result_file.write('    >> Under your current workload:\n')
+                    p.write_workloads(result_file, 8)
+                    if 'socket' in self.configs:
+                        result_file.write(
+                            '        $sysbench --mysql-socket=' + self.configs['socket'] + 
+                            ' --mysql-db=test --table-size= 100000 --threads=1 --time=120 --events=0' + 
+                            ' --report-interval=10 ' + p.get_workload_file_name() + ' prepare\n'
+                        )
+                    else:
+                        result_file.write(
+                            '        $sysbench --mysql-socket=' + 
+                            ' --mysql-db=test --table-size= 100000 --threads=1 --time=120 --events=0' + 
+                            ' --report-interval=10 ' + p.get_workload_file_name() + ' prepare\n'
+                        )
+                    result_file.write('    Potential performance impacts are:\n')
+                    r =  (costs['ET'] - p.costs['ET']) / p.costs['ET'] * 100
+                    result_file.write('        Your current setting is %s slower than the new setting\n'
+                        % (['%.2f%%'%(r), 'almost infinitely'][r == float('inf')])
+                    )
+
+                    # result_file.write(
+                    #     '%s      %s\n' % (p.costs['ET'], costs['ET'])
+                    # )
+
+                    p_total_readbytes = p.costs['IO']['read'][0] + p.costs['IO']['pread'][0]
+                    total_readbytes = costs['IO']['read'][0] + costs['IO']['pread'][0]
+                    p_total_readcalls = p.costs['IO']['read'][1] + p.costs['IO']['pread'][1]
+                    total_readcalls = costs['IO']['read'][1] + costs['IO']['pread'][1]
+                    p_total_writebytes = p.costs['IO']['write'][0] + p.costs['IO']['pwrite'][0]
+                    total_writebytes = costs['IO']['write'][0] + costs['IO']['pwrite'][0]
+                    p_total_writecalls = p.costs['IO']['write'][1] + p.costs['IO']['pwrite'][1]
+                    total_writecalls = costs['IO']['write'][1] + costs['IO']['pwrite'][1]
+
+                    if total_readbytes > p_total_readbytes or total_readcalls > p_total_readcalls or\
+                        total_writebytes > p_total_writebytes or total_writecalls > p_total_writecalls:
+                        result_file.write('        I/O (read+pread/write+pwrite) impacts are:\n')
+
+                    if total_readbytes > p_total_readbytes:
+                        if (p_total_readbytes == 0):
+                            result_file.write('            The total bytes read is increased from 0 to %s bytes\n'
+                                % (total_readbytes)
+                            )
+                        else:
+                            result_file.write('            The total bytes read is increased by %.2f%%\n'
+                                % ((total_readbytes - p_total_readbytes) / p_total_readbytes * 100)
+                            )
+                    
+                    if total_readcalls > p_total_readcalls:
+                        if (p_total_readcalls == 0):
+                            result_file.write('            The total read calls is increased from 0 to %s calls\n'
+                                % (total_readcalls)
+                            )
+                        else:
+                            result_file.write('            The total read calls is increased by %.2f%%\n'
+                                % ((total_readcalls - p_total_readcalls) / p_total_readcalls * 100)
+                            )
+                    
+                    if total_writebytes > p_total_writebytes:
+                        if (p_total_writebytes == 0):
+                            result_file.write('            The total bytes written is increased from 0 to %s bytes\n'
+                                % (total_writebytes)
+                            )
+                        else:
+                            result_file.write('            The total bytes written is increased by %.2f%%\n'
+                                % ((total_writebytes - p_total_writebytes) / p_total_writebytes * 100)
+                            )
+                    
+                    if total_writecalls > p_total_writecalls:
+                        if (p_total_writecalls == 0):
+                            result_file.write('            The total write calls is increased from 0 to %s calls\n'
+                                % (total_writecalls)
+                            )
+                        else:
+                            result_file.write('            The total write calls is increased by %.2f%%\n'
+                                % ((total_writecalls - p_total_writecalls) / p_total_writecalls * 100)
+                            )
+                else:
+                    result_file.write('    >> Under your current workload:\n')
+                    result_file.write('        Your current configuration is relative good\n')
+
                 # identical value but under different workloads
                 for p in [p for p in diff_w[c] if p.constraints[c] == pp.constraints[c]]:
                     if p.workload_option not in self.impact_table_rows:
+                        continue
+                    if p.workload_option == self.workload_option:
                         continue
                     costs = self.impact_table_rows[p.workload_option].costs
                     # result_file.write('\n')
@@ -464,7 +650,8 @@ class Config:
             'random_page_cost' : 4,
             'wal_sync_method' : 1,
             'wal_level' : 1,
-            'password_encryption' : 1
+            'password_encryption' : 1,
+            'synchronous_commit' : 1,
         }
     
     def __get_mysql_config_translate_table(self):
@@ -475,6 +662,7 @@ class Config:
     def __get_postgresql_config_translate_table(self):
         return {
             'log_statement' : {'none':0, 'ddl':1, 'mod':2, 'all':3},
+            'synchronous_commit' : {'on':1, 'off':0},
         }
 
         # write result --->
