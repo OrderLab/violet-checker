@@ -29,12 +29,6 @@ class ImpactTableRow:
     
     def get_workload_file_name(self):
         return 'oltp_' + self.workload_option + '.lua'
-
-    # def write_command_line(self, file, n):
-    #     if not self.workload_option:
-    #         file.write(' '*n + 'sysbench: None')
-    #         return
-    #     file.write(' '*n + 'sysbench: ')
     
     def write_IO_results(self, file):
         _c = self.costs['IO']
@@ -65,23 +59,18 @@ class ImpactTable:
                 constraints = row[1].split('&&')
                 costs = row[2].split(';')
                 self.constraints_handler(state_id, constraints)
-                # if 'workloads' in self.dict[state_id]:
-                #     print (self.dict[state_id]['workloads'])
                 self.costs_handler(state_id, costs)
                 # dont care the state if there is no workload index
                 if 'workloads' not in self.dict[state_id]:
                     self.dict.pop(state_id, None)
                     continue
                 self.workloads_handler(state_id)
-                # # print (self.dict[state_id]['workloads'])
-                # for i in self.dict[state_id]['workloads']:
-                #     print (i)
-                # print ('-'*20)
 
+    '''
+    Handle constraints from each impact table row
+    '''
     def constraints_handler(self, state_id, constraints):
         for c in [c.split('==') for c in constraints]:
-            # if c[1].isdigit():
-            #         c[1] = int(c[1])
             try:
                 c[1] = int(c[1])
             except:
@@ -100,6 +89,9 @@ class ImpactTable:
                 continue
             self.dict[state_id]['constraints'][c[0]] = c[1]
     
+    '''
+    Handle costs from each impact table row
+    '''
     def costs_handler(self, state_id, costs):
         for c in [c.split('=>') for c in costs]:
             if c[0] == "IO":
@@ -117,6 +109,9 @@ class ImpactTable:
             elif c[0] == "SC":
                 self.dict[state_id]['costs']['SC'] = int(c[1])
 
+    '''
+    Handle workloads from each impact table row
+    '''
     def workloads_handler(self, state_id):
         if 'workloads' not in self.dict[state_id]:
             self.dict[state_id]['workloads'] = []
@@ -151,8 +146,9 @@ class ImpactTable:
         else:
             self.workload_type[workload_index] = [state_id,]
 
-        
-        
+    '''
+    This function finds all pairs that each has N different configuration values 
+    '''        
     def find_all_pairs(self, n, target):
         t = []
         if target:
@@ -181,7 +177,7 @@ class ImpactTable:
                     if ok:
                         self.dict[id_i]['pairs'].append(id_j)
         
-    # TODO delete 
+    # TODO depreciated function
     def make_workload_suggestion(self, result_file, my_config):
 
         result_file.write('[+] VIOLET would suggest the best configuration under various workloads:\n\n')
@@ -231,10 +227,6 @@ class ImpactTable:
             _read, _insert, _update, _write,
         ]
 
-        # return [
-        #     flatten_list(_read), flatten_list(_insert)
-        # ]
-
     def __get_workload_options(self):
         return {
             '0' : 'read',
@@ -248,7 +240,16 @@ class ImpactTable:
             '20' : 'update_non_index',
             '21' : 'update_index',
         }
+    
+    def workload_options(self):
+        return list(self.__get_workload_options().values())
 
+    '''
+    In the impact table, each system variable may be assigned a out-of-range value sometimes.
+    This happens due to converting it from its symbolic value to concrete value in S2E.
+    This function returns a table that allows us to preprocess those out-of-range value, 
+    and it needs to be expand if necessary.
+    '''
     def __get_constraints_process_table(self):
         return {
             'autocommit' : [255, 1],

@@ -25,8 +25,6 @@ class Config:
         for c in cnfs:
             if re.match(r'\S+\s*=\s*\S+', c):
                 t = ''.join(c.split()).split('=')
-                # if t[1].isdigit():
-                #     t[1] = int(t[1])
                 try:
                     t[1] = int(t[1])
                 except:
@@ -42,13 +40,10 @@ class Config:
             else:
                 self.configs[c] = 1
 
-
     def add_configs(self, cnfs):
         for c in cnfs:
             if re.match(r'\S+\s*=\s*\S+', c):
                 t = ''.join(c.split()).split('=')
-                # if t[1].isdigit():
-                #     t[1] = int(t[1])
                 try:
                     t[1] = int(t[1])
                 except:
@@ -64,27 +59,25 @@ class Config:
                 self.configs[c] = 1
 
     def find(self, cnfname):
-        # print (self.cnfs)
         for c in self.configs:
             if c == cnfname:
                 return self.configs[c]
         return []
 
     def check_impact(self, impact_table):
+        self.workload_options = impact_table.workload_options()
         hit = False
         for _id in impact_table.dict:
+            # first check if there is a hit in the impact table
             ok = True
             for k in impact_table.dict[_id]['constraints']:
                 v = impact_table.dict[_id]['constraints'][k]
                 if k in self.configs:
                     if v != self.configs[k]:
-                        # print (k)
-                        # print (self.configs[k])
-                        # print (v)
-                        # print ('----')
                         ok = False
                 else:
                     ok = False
+            # if there is a hit, extract all related infomation
             if ok:
                 hit = True
                 r = impact_table.get_row(_id)
@@ -93,19 +86,16 @@ class Config:
                 if r.workload_option in self.impact_table_rows:
                     if r.costs['ET'] > self.impact_table_rows[r.workload_option].costs['ET']:
                         continue
-                # print (self.impact_table_rows)
                 self.impact_table_rows[r.workload_option] = r
-                # self.impact_table_pairs[r.workload_option] = [impact_table.get_row(p) for p in r.pairs]
                 pl = [impact_table.get_row(p) for p in r.pairs]
                 remove = []
-                # pick the best pair if there is there are pairs with similar constraints
+                # pick the best pair if there are pairs with similar constraints
                 for p1 in pl:
                     # p1_remove = False
                     for p2 in pl:
                         if p1 == p2:
                             continue
                         same = True
-                        # FIXME ??? > or < ???
                         if len(p1.constraints) > len(p2.constraints):
                             for c in p1.constraints:
                                 if c not in p2.constraints:
@@ -122,26 +112,7 @@ class Config:
                                 if p1.constraints[c] != p2.constraints[c]:
                                     same = False
                                     break
-                        # if len(p1.constraints) > len(p2.constraints):
-                        #     for c in p1.constraints:
-                        #         if c not in p2.constraints:
-                        #             same = False
-                        #             break
-                        #         if p1.constraints[c] != p2.constraints[c]:
-                        #             same = False
-                        #             break
-                        # else:
-                        #     for c in p2.constraints:
-                        #         if c not in p1.constraints:
-                        #             same = False
-                        #             break
-                        #         if p1.constraints[c] != p2.constraints[c]:
-                        #             same = False
-                        #             break
                         if same:
-                            # print (p1)
-                            # print (p2)
-                            # print ('same')
                             if p1.costs['ET'] > p2.costs['ET']:
                                 remove.append(p1)
                             else:
@@ -149,18 +120,6 @@ class Config:
                 for p in remove:
                     if p in pl:
                         pl.remove(p)
-                # TODO for debug use, delete later
-                # pc = [impact_table.get_row(p) for p in r.pairs]
-                # print ('>>>>>>>>>>>>>>>')
-                # for p in pc:
-                #     print ('--------')
-                #     for c in p.constraints:
-                #         print ('%s = %s' % (c, p.constraints[c]))
-                # print (' -> ')
-                # for p in pl:
-                #     print ('--------')
-                #     for c in p.constraints:
-                #         print ('%s = %s' % (c, p.constraints[c]))
                 self.impact_table_pairs[r.workload_option] = pl
                 self.impact_table_pairs[r.workload_option].sort(key=lambda x: x.costs['ET'], reverse=False)
                 self.impact_table_pairs[r.workload_option] = [
@@ -168,28 +127,20 @@ class Config:
                         r.workload_option
                     ] if p.costs['ET'] < self.impact_table_rows[r.workload_option].costs['ET']
                 ]
-                # TODO for debug use, delete later
-                # for c in r.constraints:
-                #     print ('    %s = %s' % (c, r.constraints[c]))
-                # print ('     => %s, %s' % (r.workload_option, r.costs['ET']))
-                # for p in self.impact_table_pairs[r.workload_option]:
-                #     print ('    p')
-                #     for c in p.constraints:
-                #         print ('    %s = %s' % (c, p.constraints[c]))
-                #     print ('    ' + str(p.costs['ET']))
-                #     # print (p.workload_option)
-                # print ('-'*20)
         return hit
 
+    '''
+    This function write overall results to the result file under diff. It only supports when there's only one difference
+    between current configurations and the configurations in each impact table row. To support more than one
+    differences, could modifify this function by adding another parameter N indicating the # of differences.
+    '''
     def write_result_diff(self, result_file, config_diff, config_diff_name):
-
         worst_workloads = []
         for w in self.impact_table_rows:
             if w not in config_diff.impact_table_rows:
                 continue
             if self.impact_table_rows[w].costs['ET'] > config_diff.impact_table_rows[w].costs['ET']:
                 worst_workloads.append(w)
-
 
         if not worst_workloads:
             result_file.write('[+] VIOLET has detected your current configuration is relative good\n')
@@ -217,14 +168,15 @@ class Config:
             result_file.write('        Your current setting is %s slower than the new setting\n'
                 % (['%.2f%%'%(r), 'almost infinitely'][r == float('inf')])
             )
-            p_total_readbytes = p.costs['IO']['read'][0] + p.costs['IO']['pread'][0]
-            total_readbytes = costs['IO']['read'][0] + costs['IO']['pread'][0]
-            p_total_readcalls = p.costs['IO']['read'][1] + p.costs['IO']['pread'][1]
-            total_readcalls = costs['IO']['read'][1] + costs['IO']['pread'][1]
-            p_total_writebytes = p.costs['IO']['write'][0] + p.costs['IO']['pwrite'][0]
-            total_writebytes = costs['IO']['write'][0] + costs['IO']['pwrite'][0]
-            p_total_writecalls = p.costs['IO']['write'][1] + p.costs['IO']['pwrite'][1]
-            total_writecalls = costs['IO']['write'][1] + costs['IO']['pwrite'][1]
+            if 'IO' in p.costs:
+                p_total_readbytes = p.costs['IO']['read'][0] + p.costs['IO']['pread'][0]
+                total_readbytes = costs['IO']['read'][0] + costs['IO']['pread'][0]
+                p_total_readcalls = p.costs['IO']['read'][1] + p.costs['IO']['pread'][1]
+                total_readcalls = costs['IO']['read'][1] + costs['IO']['pread'][1]
+                p_total_writebytes = p.costs['IO']['write'][0] + p.costs['IO']['pwrite'][0]
+                total_writebytes = costs['IO']['write'][0] + costs['IO']['pwrite'][0]
+                p_total_writecalls = p.costs['IO']['write'][1] + p.costs['IO']['pwrite'][1]
+                total_writecalls = costs['IO']['write'][1] + costs['IO']['pwrite'][1]
 
             if total_readbytes > p_total_readbytes or total_readcalls > p_total_readcalls or\
                 total_writebytes > p_total_writebytes or total_writecalls > p_total_writecalls:
@@ -285,14 +237,15 @@ class Config:
             result_file.write('        Your current setting is %s slower than the new setting\n'
                 % (['%.2f%%'%(r), 'almost infinitely'][r == float('inf')])
             )
-            p_total_readbytes = p.costs['IO']['read'][0] + p.costs['IO']['pread'][0]
-            total_readbytes = costs['IO']['read'][0] + costs['IO']['pread'][0]
-            p_total_readcalls = p.costs['IO']['read'][1] + p.costs['IO']['pread'][1]
-            total_readcalls = costs['IO']['read'][1] + costs['IO']['pread'][1]
-            p_total_writebytes = p.costs['IO']['write'][0] + p.costs['IO']['pwrite'][0]
-            total_writebytes = costs['IO']['write'][0] + costs['IO']['pwrite'][0]
-            p_total_writecalls = p.costs['IO']['write'][1] + p.costs['IO']['pwrite'][1]
-            total_writecalls = costs['IO']['write'][1] + costs['IO']['pwrite'][1]
+            if 'IO' in p.costs:
+                p_total_readbytes = p.costs['IO']['read'][0] + p.costs['IO']['pread'][0]
+                total_readbytes = costs['IO']['read'][0] + costs['IO']['pread'][0]
+                p_total_readcalls = p.costs['IO']['read'][1] + p.costs['IO']['pread'][1]
+                total_readcalls = costs['IO']['read'][1] + costs['IO']['pread'][1]
+                p_total_writebytes = p.costs['IO']['write'][0] + p.costs['IO']['pwrite'][0]
+                total_writebytes = costs['IO']['write'][0] + costs['IO']['pwrite'][0]
+                p_total_writecalls = p.costs['IO']['write'][1] + p.costs['IO']['pwrite'][1]
+                total_writecalls = costs['IO']['write'][1] + costs['IO']['pwrite'][1]
 
             if total_readbytes > p_total_readbytes or total_readcalls > p_total_readcalls or\
                 total_writebytes > p_total_writebytes or total_writecalls > p_total_writecalls:
@@ -336,9 +289,11 @@ class Config:
         result_file.write('\n')
 
 
-
-
-    # FIXME assume there's only one difference ... could change to write_result(self, result_file, n) ...
+    '''
+    This function write overall results to the result file. It only supports when there's only one difference
+    between current configurations and the configurations in each impact table row. To support more than one
+    differences, could modifify this function by adding another parameter N indicating the # of differences.
+    '''
     def write_result(self, result_file):
 
         diff, diff_w = {}, {} # diff_w contains same constraints under different workloads
@@ -418,12 +373,6 @@ class Config:
                             ', %s'%([p.constraints[c],str(p.constraints[c])+'\n'][p is diff[c][len(diff[c])-1]]),
                             '    %s = %s'%(c, [p.constraints[c],str(p.constraints[c])+'\n'][p is diff[c][len(diff[c])-1]])
                         ][p is diff[c][0]]))
-            
-            # for pp in diff[c]:
-            #     for p in [p for p in diff_w[c] if p.constraints[c] == pp.constraints[c]]:
-            #         if p.workload_option not in self.impact_table_rows:
-            #             continue
-            #         print (p.workload_option)
 
             for pp in diff[c]:
                 result_file.write('> Compare to %s = %s:\n' % (c, pp.constraints[c]))
@@ -451,19 +400,15 @@ class Config:
                     result_file.write('        Your current setting is %s slower than the new setting\n'
                         % (['%.2f%%'%(r), 'almost infinitely'][r == float('inf')])
                     )
-
-                    # result_file.write(
-                    #     '%s      %s\n' % (p.costs['ET'], costs['ET'])
-                    # )
-
-                    p_total_readbytes = p.costs['IO']['read'][0] + p.costs['IO']['pread'][0]
-                    total_readbytes = costs['IO']['read'][0] + costs['IO']['pread'][0]
-                    p_total_readcalls = p.costs['IO']['read'][1] + p.costs['IO']['pread'][1]
-                    total_readcalls = costs['IO']['read'][1] + costs['IO']['pread'][1]
-                    p_total_writebytes = p.costs['IO']['write'][0] + p.costs['IO']['pwrite'][0]
-                    total_writebytes = costs['IO']['write'][0] + costs['IO']['pwrite'][0]
-                    p_total_writecalls = p.costs['IO']['write'][1] + p.costs['IO']['pwrite'][1]
-                    total_writecalls = costs['IO']['write'][1] + costs['IO']['pwrite'][1]
+                    if 'IO' in p.costs:
+                        p_total_readbytes = p.costs['IO']['read'][0] + p.costs['IO']['pread'][0]
+                        total_readbytes = costs['IO']['read'][0] + costs['IO']['pread'][0]
+                        p_total_readcalls = p.costs['IO']['read'][1] + p.costs['IO']['pread'][1]
+                        total_readcalls = costs['IO']['read'][1] + costs['IO']['pread'][1]
+                        p_total_writebytes = p.costs['IO']['write'][0] + p.costs['IO']['pwrite'][0]
+                        total_writebytes = costs['IO']['write'][0] + costs['IO']['pwrite'][0]
+                        p_total_writecalls = p.costs['IO']['write'][1] + p.costs['IO']['pwrite'][1]
+                        total_writecalls = costs['IO']['write'][1] + costs['IO']['pwrite'][1]
 
                     if total_readbytes > p_total_readbytes or total_readcalls > p_total_readcalls or\
                         total_writebytes > p_total_writebytes or total_writecalls > p_total_writecalls:
@@ -509,8 +454,9 @@ class Config:
                                 % ((total_writecalls - p_total_writecalls) / p_total_writecalls * 100)
                             )
                 else:
-                    result_file.write('    >> Under your current workload:\n')
-                    result_file.write('        Your current configuration is relative good\n')
+                    if self.workload_option in self.workload_options:
+                        result_file.write('    >> Under your current workload:\n')
+                        result_file.write('        Your current configuration is relative good\n')
 
                 # identical value but under different workloads
                 for p in [p for p in diff_w[c] if p.constraints[c] == pp.constraints[c]]:
@@ -539,19 +485,15 @@ class Config:
                     result_file.write('        Your current setting is %s slower than the new setting\n'
                         % (['%.2f%%'%(r), 'almost infinitely'][r == float('inf')])
                     )
-
-                    # result_file.write(
-                    #     '%s      %s\n' % (p.costs['ET'], costs['ET'])
-                    # )
-
-                    p_total_readbytes = p.costs['IO']['read'][0] + p.costs['IO']['pread'][0]
-                    total_readbytes = costs['IO']['read'][0] + costs['IO']['pread'][0]
-                    p_total_readcalls = p.costs['IO']['read'][1] + p.costs['IO']['pread'][1]
-                    total_readcalls = costs['IO']['read'][1] + costs['IO']['pread'][1]
-                    p_total_writebytes = p.costs['IO']['write'][0] + p.costs['IO']['pwrite'][0]
-                    total_writebytes = costs['IO']['write'][0] + costs['IO']['pwrite'][0]
-                    p_total_writecalls = p.costs['IO']['write'][1] + p.costs['IO']['pwrite'][1]
-                    total_writecalls = costs['IO']['write'][1] + costs['IO']['pwrite'][1]
+                    if 'IO' in p.costs:
+                        p_total_readbytes = p.costs['IO']['read'][0] + p.costs['IO']['pread'][0]
+                        total_readbytes = costs['IO']['read'][0] + costs['IO']['pread'][0]
+                        p_total_readcalls = p.costs['IO']['read'][1] + p.costs['IO']['pread'][1]
+                        total_readcalls = costs['IO']['read'][1] + costs['IO']['pread'][1]
+                        p_total_writebytes = p.costs['IO']['write'][0] + p.costs['IO']['pwrite'][0]
+                        total_writebytes = costs['IO']['write'][0] + costs['IO']['pwrite'][0]
+                        p_total_writecalls = p.costs['IO']['write'][1] + p.costs['IO']['pwrite'][1]
+                        total_writecalls = costs['IO']['write'][1] + costs['IO']['pwrite'][1]
 
                     if total_readbytes > p_total_readbytes or total_readcalls > p_total_readcalls or\
                         total_writebytes > p_total_writebytes or total_writecalls > p_total_writecalls:
@@ -566,7 +508,6 @@ class Config:
                             result_file.write('            The total bytes read is increased by %.2f%%\n'
                                 % ((total_readbytes - p_total_readbytes) / p_total_readbytes * 100)
                             )
-                    
 
                     if total_readcalls > p_total_readcalls:
                         if (p_total_readcalls == 0):
@@ -624,13 +565,15 @@ class Config:
             r.write_costs(result_file)
             r.write_IO_results(result_file)
             result_file.write('\n')
-            # result_file.write('the total execution time is %sms\n\n' % (r.costs['ET']))
 
             top += 1
             n -= 1
             if not n:
                 break
 
+    '''
+    This function returns MySQL system variables with their default value
+    '''
     def __get_mysql_default_configs(self):
         return {
             'autocommit' : 1,
@@ -642,8 +585,238 @@ class Config:
             'innodb_force_recovery' : 0,
             'query_cache_type' : 0,
             'query_cache_size' : 1048576,
+
+            ### default value generated from MySQL 5.5.59 source code
+            # 'performance_schema' : 0,
+            # 'performance_schema_events_waits_history_long_size' : 10000,
+            # 'performance_schema_events_waits_history_size' : 10,
+            # 'performance_schema_max_cond_classes' : 80,
+            # 'performance_schema_max_cond_instances' : 1000,
+            # 'performance_schema_max_file_classes' : 50,
+            # 'performance_schema_max_file_handles' : 32768,
+            # 'performance_schema_max_file_instances' : 10000,
+            # 'performance_schema_max_mutex_classes' : 200,
+            # 'performance_schema_max_mutex_instances' : 1000000,
+            # 'performance_schema_max_rwlock_classes' : 30,
+            # 'performance_schema_max_rwlock_instances' : 1000000,
+            # 'performance_schema_max_table_handles' : 100000,
+            # 'performance_schema_max_table_instances' : 50000,
+            # 'performance_schema_max_thread_classes' : 50,
+            # 'performance_schema_max_thread_instances' : 1000,
+            # 'auto_increment_increment' : 1,
+            # 'auto_increment_offset' : 1,
+            # 'automatic_sp_privileges' : 1,
+            # 'back_log' : 50,
+            # 'basedir' : None,
+            # 'binlog_cache_size' : 32768,
+            # 'binlog_stmt_cache_size' : 32768,
+            # 'binlog_format' : 1,
+            # 'binlog_direct_non_transactional_updates' : 0,
+            # 'bulk_insert_buffer_size' : 8388608,
+            # 'character_sets_dir' : None,
+            # 'completion_type' : 0,
+            # 'concurrent_insert' : 1,
+            # 'connect_timeout' : 10,
+            # 'datadir' : None,
+            # 'debug' : 12899968,
+            # 'delay_key_write' : 1,
+            # 'delayed_insert_limit' : 100,
+            # 'delayed_insert_timeout' : 300,
+            # 'delayed_queue_size' : 1000,
+            # 'event_scheduler' : 0,
+            # 'expire_logs_days' : 0,
+            # 'flush' : 0,
+            # 'flush_time' : 0,
+            # 'ft_max_word_len' : 84,
+            # 'ft_min_word_len' : 4,
+            # 'ft_query_expansion_limit' : 20,
+            # 'ft_stopword_file' : None,
+            # 'ignore_builtin_innodb' : 0,
+            # 'init_connect' : 12899968,
+            # 'init_file' : None,
+            # 'init_slave' : 12899968,
+            # 'interactive_timeout' : 28800,
+            # 'join_buffer_size' : 131072,
+            # 'key_buffer_size' : 8388608,
+            # 'key_cache_block_size' : 1024,
+            # 'key_cache_division_limit' : 100,
+            # 'key_cache_age_threshold' : 300,
+            # 'large_files_support' : 1,
+            # 'large_page_size' : 0,
+            # 'large_pages' : 0,
+            # 'lc_messages_dir' : None,
+            # 'local_infile' : 1,
+            # 'lock_wait_timeout' : 31536000,
+            # 'locked_in_memory' : 0,
+            # 'log_bin' : 0,
+            # 'log_bin_trust_function_creators' : 0,
+            # 'log_error' : 0,
+            # 'log_queries_not_using_indexes' : 0,
+            # 'log_warnings' : 1,
+            # 'long_query_time' : 10.000000,
+            # 'low_priority_updates' : 0,
+            # 'sql_low_priority_updates' : 0,
+            # 'lower_case_file_system' : 0,
+            # 'lower_case_table_names' : 0,
+            # 'max_allowed_packet' : 1048576,
+            # 'slave_max_allowed_packet' : 1073741824,
+            # 'max_binlog_cache_size' : -4096,
+            # 'max_binlog_stmt_cache_size' : -4096,
+            # 'max_binlog_size' : 1073741824,
+            # 'max_connections' : 151,
+            # 'max_connect_errors' : 10,
+            # 'max_insert_delayed_threads' : 20,
+            # 'max_delayed_threads' : 20,
+            # 'max_error_count' : 64,
+            # 'max_heap_table_size' : 16777216,
+            # 'metadata_locks_cache_size' : 1024,
+            # 'pseudo_thread_id' : 0,
+            # 'max_join_size' : -1,
+            # 'max_seeks_for_key' : -1,
+            # 'max_length_for_sort_data' : 1024,
+            # 'sql_max_join_size' : -1,
+            # 'max_long_data_size' : 1048576,
+            # 'max_prepared_stmt_count' : 16382,
+            # 'max_relay_log_size' : 0,
+            # 'max_sort_length' : 1024,
+            # 'max_sp_recursion_depth' : 0,
+            # 'max_user_connections' : 0,
+            # 'max_tmp_tables' : 32,
+            # 'max_write_lock_count' : -1,
+            # 'min_examined_row_limit' : 0,
+            # 'net_buffer_length' : 16384,
+            # 'net_read_timeout' : 30,
+            # 'net_write_timeout' : 60,
+            # 'net_retry_count' : 10,
+            # 'new' : 0,
+            # 'old' : 0,
+            # 'old_alter_table' : 0,
+            # 'old_passwords' : 0,
+            # 'open_files_limit' : 0,
+            # 'optimizer_prune_level' : 1,
+            # 'optimizer_search_depth' : 62,
+            # 'optimizer_switch' : 31,
+            # 'pid_file' : None,
+            # 'plugin_dir' : None,
+            # 'port' : 0,
+            # 'preload_buffer_size' : 32768,
+            # 'protocol_version' : 10,
+            # 'read_buffer_size' : 131072,
+            # 'read_only' : 0,
+            # 'read_rnd_buffer_size' : 262144,
+            # 'div_precision_increment' : 4,
+            # 'rpl_recovery_rank' : 0,
+            # 'range_alloc_block_size' : 4096,
+            # 'multi_range_count' : 256,
+            # 'query_alloc_block_size' : 8192,
+            # 'query_prealloc_size' : 8192,
+            # 'skip_external_locking' : 1,
+            # 'skip_networking' : 0,
+            # 'skip_name_resolve' : 0,
+            # 'skip_show_database' : 0,
+            # 'socket' : None,
+            # 'thread_concurrency' : 10,
+            # 'thread_stack' : 262144,
+            # 'tmpdir' : None,
+            # 'transaction_alloc_block_size' : 8192,
+            # 'transaction_prealloc_size' : 4096,
+            # 'thread_handling' : 0,
+            # 'query_cache_size' : 0,
+            # 'query_cache_limit' : 1048576,
+            # 'query_cache_min_res_unit' : 4096,
+            # 'query_cache_type' : 1,
+            # 'query_cache_wlock_invalidate' : 0,
+            # 'secure_auth' : 0,
+            # 'secure_file_priv' : NULL,
+            # 'server_id' : 0,
+            # 'slave_compressed_protocol' : 0,
+            # 'slave_exec_mode' : 0,
+            # 'slave_type_conversions' : 0,
+            # 'slow_launch_time' : 2,
+            # 'sort_buffer_size' : 2097152,
+            # 'sql_mode' : 0,
+            # 'ssl_ca' : None,
+            # 'ssl_capath' : None,
+            # 'ssl_cert' : None,
+            # 'ssl_cipher' : None,
+            # 'ssl_key' : None,
+            # 'updatable_views_with_limit' : 1,
+            # 'sync_frm' : 1,
+            # 'table_definition_cache' : 400,
+            # 'table_open_cache' : 400,
+            # 'thread_cache_size' : 0,
+            # 'tx_isolation' : 2,
+            # 'tmp_table_size' : 16777216,
+            # 'timed_mutexes' : 0,
+            # 'version_comment' : 'Source distribution',
+            # 'version_compile_machine' : 'x86_64',
+            # 'version_compile_os' : 'Linux',
+            # 'wait_timeout' : 28800,
+            # 'engine_condition_pushdown' : 1,
+            # 'debug_sync' : 0,
+            # 'autocommit' : 1,
+            # 'big_tables' : 0,
+            # 'sql_big_tables' : 0,
+            # 'sql_big_selects' : 0,
+            # 'sql_log_off' : 0,
+            # 'sql_log_bin' : 1,
+            # 'sql_warnings' : 0,
+            # 'sql_notes' : 1,
+            # 'sql_auto_is_null' : 0,
+            # 'sql_safe_updates' : 0,
+            # 'sql_buffer_result' : 0,
+            # 'sql_quote_show_create' : 1,
+            # 'foreign_key_checks' : 1,
+            # 'unique_checks' : 1,
+            # 'profiling' : 0,
+            # 'profiling_history_size' : 15,
+            # 'sql_select_limit' : -1,
+            # 'timestamp' : 0,
+            # 'last_insert_id' : 0,
+            # 'identity' : 0,
+            # 'insert_id' : 0,
+            # 'rand_seed1' : 0,
+            # 'rand_seed2' : 0,
+            # 'error_count' : 0,
+            # 'warning_count' : 0,
+            # 'default_week_format' : 0,
+            # 'group_concat_max_len' : 1024,
+            # 'report_host' : None,
+            # 'report_user' : None,
+            # 'report_password' : None,
+            # 'report_port' : 0,
+            # 'keep_files_on_create' : 0,
+            # 'license' : 'GPL',
+            # 'general_log_file' : None,
+            # 'slow_query_log_file' : None,
+            # 'general_log' : 0,
+            # 'log' : 0,
+            # 'slow_query_log' : 0,
+            # 'log_slow_queries' : 0,
+            # 'log_output' : 2,
+            # 'log_slave_updates' : 0,
+            # 'relay_log' : None,
+            # 'relay_log_index' : None,
+            # 'relay_log_info_file' : None,
+            # 'relay_log_purge' : 1,
+            # 'relay_log_recovery' : 0,
+            # 'slave_load_tmpdir' : None,
+            # 'slave_net_timeout' : 3600,
+            # 'sql_slave_skip_counter' : 0,
+            # 'slave_skip_errors' : None,
+            # 'relay_log_space_limit' : 0,
+            # 'sync_relay_log' : 0,
+            # 'sync_relay_log_info' : 0,
+            # 'sync_binlog' : 0,
+            # 'sync_master_info' : 0,
+            # 'slave_transaction_retries' : 10,
+            # 'stored_program_cache' : 256,
+            # 'pseudo_slave_mode' : 0,
         }
     
+    '''
+    This function returns PostgreSQL system variables with their default value
+    '''
     def __get_postgresql_default_configs(self):
         return {
             'log_statement' : 0,
@@ -665,51 +838,13 @@ class Config:
             'synchronous_commit' : {'on':1, 'off':0},
         }
 
-        # write result --->
-        # for p in self.pairs:
-        #     diff_c = []
-        #     for p_c in p.constraints:
-        #         if p.constraints[p_c] != self.configs[p_c]:
-        #             diff_c.append(p_c)
-        #     if not diff_c:
-        #         continue # shouldn't be empty
-        #     for c in diff_c:
-        #         result_file.write('[%s]' % (c))
-        #     result_file.write('\nYour current setting is:\n')
-        #     for c in diff_c:
-        #         result_file.write('    %s = %s\n' % (c, self.configs[c]))
-        #     result_file.write('A better setting could be:\n')
-        #     for c in diff_c:
-        #         result_file.write('    %s = %s\n' % (c, p.constraints[c]))
-        #     result_file.write('Potential performance impacts are:\n')
-        #     result_file.write('    When the workload is\n')
-        #     p.write_workloads(result_file, 8)
-        #     r =  (self.costs['ET'] - p.costs['ET']) / p.costs['ET'] * 100
-        #     result_file.write('    Your current setting is %s slower than the new setting\n'
-        #         % (['%.2f%%'%(r), 'almost infinitely'][r == float('inf')])
-        #     )
-        #     p_total_readbytes = p.costs['IO']['read'][0] + p.costs['IO']['pread'][0]
-        #     total_readbytes = self.costs['IO']['read'][0] + self.costs['IO']['pread'][0]
-        #     if p_total_readbytes < total_readbytes:
-        #         result_file.write('    The total bytes read (read+pread) is reduced by %.2f%%\n' # TODO increased
-        #             % ((total_readbytes - p_total_readbytes) / total_readbytes * 100)
-        #         )
-        #     p_total_readcalls = p.costs['IO']['read'][1] + p.costs['IO']['pread'][1]
-        #     total_readcalls = self.costs['IO']['read'][1] + self.costs['IO']['pread'][1]
-        #     if p_total_readcalls < total_readcalls:
-        #         result_file.write('    The total read calls (read+pread) is reduced by %.2f%%\n'
-        #             % ((total_readcalls - p_total_readcalls) / total_readcalls * 100)
-        #         )
-        #     p_total_writebytes = p.costs['IO']['write'][0] + p.costs['IO']['pwrite'][0]
-        #     total_writebytes = self.costs['IO']['write'][0] + self.costs['IO']['pwrite'][0]
-        #     if p_total_writebytes < total_writebytes:
-        #         result_file.write('    The total bytes written (write+pwrite) is reduced by %.2f%%\n'
-        #             % ((total_writebytes - p_total_writebytes) / total_writebytes * 100)
-        #         )
-        #     p_total_writecalls = p.costs['IO']['write'][1] + p.costs['IO']['pwrite'][1]
-        #     total_writecalls = self.costs['IO']['write'][1] + self.costs['IO']['pwrite'][1]
-        #     if p_total_writecalls < total_writecalls:
-        #         result_file.write('    The total write calls (write+pwrite) is reduced by %.2f%%\n'
-        #             % ((total_writecalls - p_total_writecalls) / total_writecalls * 100)
-        #         )
-        #     result_file.write('\n')
+
+        '''
+        
+        a = [
+
+            
+
+        ]
+
+        '''
